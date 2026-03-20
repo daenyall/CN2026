@@ -14,6 +14,7 @@ import TeacherDashboard from './src/features/screens/TeacherDashboard';
 import StudentList from './src/features/screens/StudentList';
 import TeamRecruitment from './src/features/screens/TeamRecruitment';
 import ReportExport from './src/features/screens/ReportExport';
+import HeatMapScreen from './src/features/screens/HeatMapScreen';
 
 /**
  * SportRecrut - Aplikacja do rekrutacji sportowej
@@ -50,6 +51,7 @@ export default function App() {
         <Stack.Screen name="StudentList" component={StudentList} />
         <Stack.Screen name="TeamRecruitment" component={TeamRecruitment} />
         <Stack.Screen name="ReportExport" component={ReportExport} />
+        <Stack.Screen name="HeatMapScreen" component={HeatMapScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

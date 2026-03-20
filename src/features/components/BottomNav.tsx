@@ -34,7 +34,7 @@ export function BottomNav({ type }: BottomNavProps) {
     { Icon: ClipboardList, label: 'Testy', path: 'TestForm' },
     { Icon: User, label: 'Profil', path: 'StudentProfile' },
     { Icon: Trophy, label: 'Ranking', path: 'RankingScreen' },
-    { Icon: Map, label: 'Mapa', path: 'StreakScreen' },
+    { Icon: Map, label: 'Mapa', path: 'HeatMapScreen' },
   ];
 
   const teacherNavItems: NavItem[] = [

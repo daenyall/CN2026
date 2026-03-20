@@ -3,6 +3,7 @@ export type RootStackParamList = {
   StudentDashboard: undefined;
   StudentProfile: undefined;
   TestForm: undefined;
+  HeatMapScreen: undefined;
   StreakScreen: undefined;
   RankingScreen: undefined;
   TeacherDashboard: undefined;
