@@ -7,6 +7,7 @@ import { NeonCard } from '../components/NeonCard';
 import { BottomNav } from '../components/BottomNav';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList } from '../routes';
+import { MOCK_STUDENTS } from '../data/MockStudents';
 
 export default function StudentList() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -60,7 +61,7 @@ export default function StudentList() {
       text: { color: Colors.neonGreen },
     };
   };
-
+  console.log("Ilu mamy uczniów w bazie?", MOCK_STUDENTS.length);
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
