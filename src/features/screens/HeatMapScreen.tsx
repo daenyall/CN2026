@@ -20,8 +20,6 @@ const HEAT_POINTS = [
 
 export default function HeatMapScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const route = useRoute<any>();
-    const userType = route.params?.userType || 'student';
 
     useEffect(() => {
         Animated.timing(fadeAnim, {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import StudentList from './src/features/screens/StudentList';
 import TeamRecruitment from './src/features/screens/TeamRecruitment';
 import ReportExport from './src/features/screens/ReportExport';
 import HeatMapScreen from './src/features/screens/HeatMapScreen';
+import { seedStudentsToFirestore } from './src/features/utils/seedFirestore';
 
 /**
  * SportRecrut - Aplikacja do rekrutacji sportowej
@@ -77,6 +78,18 @@ function TeacherTabNavigator() {
 }
 
 export default function App() {
+  const seeded = useRef(false);
+
+  // Jednorazowy seed Firestore — odpal raz, potem zakomentuj lub usuń
+  useEffect(() => {
+    if (!seeded.current) {
+      seeded.current = true;
+      seedStudentsToFirestore()
+        .then(() => console.log('🏁 Seed zakończony pomyślnie'))
+        .catch((err) => console.error('❌ Seed error:', err));
+    }
+  }, []);
+
   return (
     <NavigationContainer>
       <StatusBar style="light" />
