@@ -19,14 +19,13 @@ import { NeonIcon } from '../components/NeonIcon';
 import { AnomalyModal } from '../components/AnomalyModal';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, StudentTabParamList } from '../routes';
+import { checkAnomaly } from '../utils/anomalyUtils';
+import { MOCK_STUDENTS } from '../data/MockStudents';
 
 type TestFormNavProp = CompositeNavigationProp<
   MaterialTopTabNavigationProp<StudentTabParamList, 'TestForm'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
-import type { RootStackParamList } from '../routes';
-import { checkAnomaly } from '../utils/anomalyUtils';
-import { MOCK_STUDENTS } from '../data/MockStudents';
 
 const EXERCISES = [
   { id: 'plank', name: 'Plank', emoji: '🧘', unit: 's', type: 'single', average: 90, scoring: 'higher' },
