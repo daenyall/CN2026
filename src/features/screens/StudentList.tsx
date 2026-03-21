@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Flame, TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Clock } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,7 +8,10 @@ import { NeonCard } from '../components/NeonCard';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
-import { MOCK_STUDENTS } from '../data/MockStudents';
+
+// IMPORTY FIREBASE
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 type StudentListNav = CompositeNavigationProp<
   MaterialTopTabNavigationProp<TeacherTabParamList, 'StudentList'>,
@@ -19,22 +22,49 @@ export default function StudentList() {
   const navigation = useNavigation<StudentListNav>();
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'best' | 'streak' | 'inactive'>('all');
 
-  // Derive display data from MOCK_STUDENTS
-  const students = MOCK_STUDENTS.map((athlete, index) => {
-    const isActive = athlete.currentStreak > 0;
+  // STANY DLA DANYCH Z FIREBASE
+  const [firebaseStudents, setFirebaseStudents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // POBIERANIE DANYCH Z FIREBASE
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'students'));
+        const fetchedData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setFirebaseStudents(fetchedData);
+      } catch (error) {
+        console.error("Błąd pobierania uczniów z Firebase: ", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Mapowanie pobranych danych (odpowiednik wcześniejszego MOCK_STUDENTS)
+  const students = firebaseStudents.map((athlete, index) => {
+    // Zabezpieczenie, bo w Firebase mogło to zostać zapisane jako stats.overall albo po prostu overall
+    const overallScore = athlete.overall ?? athlete.stats?.overall ?? 0;
+
+    const isActive = (athlete.currentStreak || 0) > 0;
     let trend: 'up' | 'down' | 'same' = 'same';
-    if (athlete.overall >= 75) trend = 'up';
-    else if (athlete.overall < 60) trend = 'down';
+    if (overallScore >= 75) trend = 'up';
+    else if (overallScore < 60) trend = 'down';
 
     return {
       id: athlete.id,
-      name: athlete.name,
+      name: athlete.name || 'Nieznany Uczeń',
       number: index + 1,
-      score: athlete.overall,
-      streak: athlete.currentStreak,
+      score: overallScore,
+      streak: athlete.currentStreak || 0,
       trend,
       active: isActive,
-      // Symulujemy, że niektórzy uczniowie (np. pierwszy, trzeci) mają testy do zatwierdzenia na potrzeby dema
+      // Symulujemy, że niektórzy uczniowie mają testy do zatwierdzenia na potrzeby dema
       hasPendingTests: index === 0 || index === 2 || index === 5,
     };
   });
@@ -100,7 +130,11 @@ export default function StudentList() {
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Klasa 6A</Text>
             <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{MOCK_STUDENTS.length}</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color={Colors.neonGreen} />
+              ) : (
+                <Text style={styles.headerBadgeText}>{students.length}</Text>
+              )}
             </View>
           </View>
 
@@ -136,9 +170,14 @@ export default function StudentList() {
             </View>
           </ScrollView>
 
-          {/* Students List */}
+          {/* Students List or Loading Spinner */}
           <View style={styles.studentsList}>
-            {filteredStudents.length === 0 ? (
+            {isLoading ? (
+              <View style={{ marginTop: 50, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={Colors.neonGreen} />
+                <Text style={{ color: Colors.gray, marginTop: 10 }}>Pobieranie danych z Firestore...</Text>
+              </View>
+            ) : filteredStudents.length === 0 ? (
               <Text style={{ color: Colors.gray, textAlign: 'center', marginTop: 20 }}>
                 Brak uczniów w tej kategorii. 🎉
               </Text>
@@ -221,7 +260,6 @@ export default function StudentList() {
           </View>
         </View>
       </ScrollView>
-
     </View>
   );
 }
@@ -233,7 +271,7 @@ const styles = StyleSheet.create({
   innerPadding: { padding: Spacing.xl, paddingTop: 60 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
   headerTitle: { color: Colors.white, fontSize: FontSize['2xl'], fontWeight: '800' },
-  headerBadge: { paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)' },
+  headerBadge: { paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)', minWidth: 40, alignItems: 'center' },
   headerBadgeText: { color: Colors.neonGreen, fontWeight: '700', fontSize: FontSize.base },
   filtersScroll: { marginBottom: Spacing.xl },
   filtersRow: { flexDirection: 'row', gap: Spacing.sm, paddingBottom: Spacing.sm },
