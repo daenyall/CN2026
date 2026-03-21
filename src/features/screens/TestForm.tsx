@@ -27,24 +27,14 @@ import { MOCK_STUDENTS } from '../data/MockStudents';
 import { doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { updateStreak } from '../utils/streakUtils';
+import { evaluateAchievements, ACHIEVEMENTS } from '../config/achievements';
+import { getRankDisplay } from '../config/ranks';
+import { EXERCISES } from '../config/exercises';
 
 type TestFormNavProp = CompositeNavigationProp<
   MaterialTopTabNavigationProp<StudentTabParamList, 'TestForm'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
-
-const EXERCISES = [
-  { id: 'plank', name: 'Plank', emoji: '🧘', unit: 's', type: 'single', average: 90, scoring: 'higher' },
-  { id: 'run100', name: 'Bieg 100m', emoji: '🏃', unit: 's', type: 'single', average: 15.2, scoring: 'lower' },
-  { id: 'jump', name: 'Skok w dal', emoji: '📏', unit: 'cm', type: 'single', average: 165, scoring: 'higher' },
-  { id: 'pushups', name: 'Pompki', emoji: '💪', unit: 'powt.', type: 'single', average: 25, scoring: 'higher' },
-  { id: 'pullups', name: 'Podciąganie', emoji: '🧗', unit: 'powt.', type: 'single', average: 5, scoring: 'higher' },
-  { id: 'situps', name: 'Brzuszki', emoji: '🤸', unit: 'powt.', type: 'single', average: 35, scoring: 'higher' },
-  { id: 'run1000', name: 'Bieg na 1000m', emoji: '🏃‍♂️', unit: 's', type: 'single', average: 270, scoring: 'lower' },
-  { id: 'squats', name: 'Przysiady', emoji: '🏋️', unit: 'kg', type: 'weight_reps', average: 60, scoring: 'higher' },
-  { id: 'bench', name: 'Wyciskanie leżąc', emoji: '🏋️‍♂️', unit: 'kg', type: 'weight_reps', average: 50, scoring: 'higher' },
-  { id: 'deadlift', name: 'Martwy ciąg', emoji: '🏗️', unit: 'kg', type: 'weight_reps', average: 70, scoring: 'higher' },
-];
 
 type SetEntry = {
   setId: string;
@@ -221,6 +211,8 @@ export default function TestForm() {
     }));
   };
 
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const updateSet = (exerciseId: string, setId: string, field: 'value' | 'weightValue', newValue: string) => {
     setActiveExercises(prev => prev.map(ex => {
       if (ex.exerciseId === exerciseId) {
@@ -231,6 +223,11 @@ export default function TestForm() {
       }
       return ex;
     }));
+    // Debounce progress bar update while typing (faster feedback)
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      triggerProgressUpdate();
+    }, 300);
   };
 
   const getBestValue = (ex: ActiveExercise, exerciseDef: any) => {
@@ -305,82 +302,116 @@ export default function TestForm() {
       setIsSubmitting(true);
 
       // KROK 1: Symulacja uploadu zdjęć (kółko ładowania)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const fakeProofFilenames = proofImages.length > 0 ? generateFakeFilenames(proofImages.length) : [];
 
       // KROK 2: Przygotuj obiekt nowego testu
+      const exercisesPayload = activeExercises.map(ex => {
+        const def = EXERCISES.find(e => e.id === ex.exerciseId);
+        return {
+          exerciseId: ex.exerciseId,
+          name: def?.name ?? ex.exerciseId,
+          unit: def?.unit ?? '',
+          sets: ex.sets.map(s => ({
+            value: parseFloat(s.value) || 0,
+            weightValue: parseFloat(s.weightValue) || 0,
+          })),
+          bestValue: getBestValue(ex, def),
+        };
+      });
+
       const newTestRecord = {
         date: new Date().toISOString(),
-        exercises: activeExercises.map(ex => {
-          const def = EXERCISES.find(e => e.id === ex.exerciseId);
-          return {
-            exerciseId: ex.exerciseId,
-            name: def?.name ?? ex.exerciseId,
-            unit: def?.unit ?? '',
-            sets: ex.sets.map(s => ({
-              value: parseFloat(s.value) || 0,
-              weightValue: parseFloat(s.weightValue) || 0,
-            })),
-            bestValue: getBestValue(ex, def),
-          };
-        }),
+        exercises: exercisesPayload,
         proofFilenames: fakeProofFilenames,
       };
 
-      // KROK 3: Zapis do Firestore
-      await setDoc(doc(db, 'students', 'mock_student_1'), {
-        testResults: arrayUnion(newTestRecord),
-      }, { merge: true });
+      // KROK 3: Ewaluacja osiągnięć (medali)
+      const referenceStudent = MOCK_STUDENTS[0];
+      const { newMedals, highestRankReward } = evaluateAchievements(exercisesPayload, referenceStudent);
 
-      // KROK 4: Aktualizacja streak
+      const firebaseUpdate: Record<string, any> = {
+        testResults: arrayUnion(newTestRecord),
+      };
+
+      if (newMedals.length > 0) {
+        firebaseUpdate.earnedMedals = arrayUnion(...newMedals);
+      }
+
+      if (highestRankReward !== null && highestRankReward > referenceStudent.rankId) {
+        firebaseUpdate.rankId = highestRankReward;
+      }
+
+      // KROK 4: Zapis do Firestore
+      await setDoc(doc(db, 'students', 'mock_student_1'), firebaseUpdate, { merge: true });
+
+      // KROK 5: Aktualizacja streak
       await updateStreak();
 
-      // KROK 5: Sprawdzenie anomalii
-      const referenceStudent = MOCK_STUDENTS[0];
-      const lastTest = referenceStudent.testResults[referenceStudent.testResults.length - 1];
+      // KROK 6: Łańcuch powiadomień UI
+      const showAnomalyCheck = () => {
+        const lastTest = referenceStudent.testResults[referenceStudent.testResults.length - 1];
+        let detectedAnomaly = false;
 
-      let detectedAnomaly = false;
+        activeExercises.forEach(ex => {
+          const def = EXERCISES.find(e => e.id === ex.exerciseId);
+          if (!def) return;
 
-      activeExercises.forEach(ex => {
-        const def = EXERCISES.find(e => e.id === ex.exerciseId);
-        if (!def) return;
+          const currentScore = getBestValue(ex, def);
+          if (currentScore <= 0) return;
 
-        const currentScore = getBestValue(ex, def);
-        if (currentScore <= 0) return;
+          let previousScore = def.average;
+          if (lastTest) {
+            if (def.id === 'plank') previousScore = lastTest.plank;
+            else if (def.id === 'run100') previousScore = lastTest.sprint;
+            else if (def.id === 'jump') previousScore = lastTest.longJump;
+          }
 
-        let previousScore = def.average;
-        if (lastTest) {
-          if (def.id === 'plank') previousScore = lastTest.plank;
-          else if (def.id === 'run100') previousScore = lastTest.sprint;
-          else if (def.id === 'jump') previousScore = lastTest.longJump;
+          const isAnomaly = def.scoring === 'lower'
+            ? checkAnomaly(previousScore, currentScore)
+            : checkAnomaly(currentScore, previousScore);
+
+          if (isAnomaly && !detectedAnomaly) {
+            detectedAnomaly = true;
+            const improvement = def.scoring === 'lower'
+              ? Math.round(((previousScore - currentScore) / previousScore) * 100)
+              : Math.round(((currentScore - previousScore) / previousScore) * 100);
+
+            setAnomalyDetails({
+              exerciseName: def.name,
+              improvement,
+              previousValue: `${previousScore}${def.unit}`,
+              currentValue: `${currentScore}${def.unit}`,
+            });
+          }
+        });
+
+        if (detectedAnomaly) {
+          setShowAnomalyModal(true);
+        } else {
+          Alert.alert('Zapis wysłany', 'Wyniki zostały przesłane. Czekają na zatwierdzenie przez nauczyciela.', [
+            { text: 'OK', onPress: () => navigation.navigate('StudentProfile') },
+          ]);
         }
+      };
 
-        const isAnomaly = def.scoring === 'lower'
-          ? checkAnomaly(previousScore, currentScore)
-          : checkAnomaly(currentScore, previousScore);
+      if (newMedals.length > 0) {
+        const medalNames = newMedals
+          .map(id => ACHIEVEMENTS.find(a => a.id === id)?.name ?? id)
+          .join(', ');
 
-        if (isAnomaly && !detectedAnomaly) {
-          detectedAnomaly = true;
-          const improvement = def.scoring === 'lower'
-            ? Math.round(((previousScore - currentScore) / previousScore) * 100)
-            : Math.round(((currentScore - previousScore) / previousScore) * 100);
+        const rankMsg = highestRankReward !== null && highestRankReward > referenceStudent.rankId
+          ? `\nNowa ranga: ${getRankDisplay(highestRankReward)} 🎖️`
+          : '';
 
-          setAnomalyDetails({
-            exerciseName: def.name,
-            improvement,
-            previousValue: `${previousScore}${def.unit}`,
-            currentValue: `${currentScore}${def.unit}`,
-          });
-        }
-      });
-
-      if (detectedAnomaly) {
-        setShowAnomalyModal(true);
+        Alert.alert(
+          '🏆 Nowe Osiągnięcie!',
+          `Zdobyto: ${medalNames}${rankMsg}`,
+          [{ text: 'Super!', onPress: showAnomalyCheck }],
+        );
       } else {
-        Alert.alert('Zapis wysłany', 'Wyniki zostały przesłane. Czekają na zatwierdzenie przez nauczyciela.', [
-          { text: 'OK', onPress: () => navigation.navigate('StudentProfile') },
-        ]);
+        showAnomalyCheck();
       }
     } catch (error) {
       console.error('Błąd wysyłki:', error);

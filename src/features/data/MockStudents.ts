@@ -46,6 +46,10 @@ export interface Athlete {
   recentAchievements: Achievement[];
   testResults: TestResult[];
   weightHistory: { date: string; weight: number }[];
+  
+  // NOWE POLA DO SYSTEMU RANG I MEDALI
+  rankId: number;
+  earnedMedals: string[];
 }
 
 export const MOCK_STUDENTS: Athlete[] = [
@@ -73,7 +77,7 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 5, 
     longestStreak: 12, 
     bonusPoints: 150, 
-    lastWorkoutDate: new Date(Date.now() - 1 * 86400000).toISOString(), // 1 day ago
+    lastWorkoutDate: new Date(Date.now() - 1 * 86400000).toISOString(),
     recentExercises: [
       { id: 'e1', name: 'Bieg na 60m', date: new Date(Date.now() - 1 * 86400000).toISOString(), score: 95 },
       { id: 'e2', name: 'Skok w dal', date: new Date(Date.now() - 2 * 86400000).toISOString(), score: 82 },
@@ -84,6 +88,8 @@ export const MOCK_STUDENTS: Athlete[] = [
       { id: 'a4', title: 'Tydzień Treningu', date: new Date(Date.now() - 15 * 86400000).toISOString(), icon: '🔥' },
     ],
     testResults: [{ date: '2026-03-15T10:00:00.000Z', plank: 120, sprint: 14.2, longJump: 320 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '2', 
@@ -106,6 +112,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     recentExercises: [],
     recentAchievements: [],
     testResults: [{ date: '2026-03-10T10:00:00.000Z', plank: 180, sprint: 15.1, longJump: 280 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '3', name: 'Michał Wiśniewski', class: '6B', age: 13,
@@ -117,6 +125,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 2, longestStreak: 5, bonusPoints: 40, lastWorkoutDate: '2026-03-19T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-05T10:00:00.000Z', plank: 90, sprint: 12.8, longJump: 410 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '4', name: 'Zofia Wójcik', class: '7A', age: 14,
@@ -128,6 +138,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 8, longestStreak: 20, bonusPoints: 210, lastWorkoutDate: '2026-03-20T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-18T10:00:00.000Z', plank: 150, sprint: 16.5, longJump: 250 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '5', name: 'Kacper Kamiński', class: '6B', age: 12,
@@ -139,6 +151,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 0, longestStreak: 7, bonusPoints: 0, lastWorkoutDate: '2026-03-10T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-12T10:00:00.000Z', plank: 110, sprint: 14.8, longJump: 340 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '6', name: 'Julia Lewandowski', class: '7A', age: 13,
@@ -150,6 +164,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 32, longestStreak: 32, bonusPoints: 850, lastWorkoutDate: '2026-03-21T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-01T10:00:00.000Z', plank: 140, sprint: 13.9, longJump: 310 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '7', name: 'Szymon Zieliński', class: '6A', age: 12,
@@ -161,6 +177,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 1, longestStreak: 3, bonusPoints: 10, lastWorkoutDate: '2026-03-21T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-16T10:00:00.000Z', plank: 80, sprint: 15.5, longJump: 380 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '8', name: 'Maja Szymańska', class: '7A', age: 14,
@@ -172,6 +190,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 21, longestStreak: 25, bonusPoints: 450, lastWorkoutDate: '2026-03-20T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-20T10:00:00.000Z', plank: 210, sprint: 14.5, longJump: 300 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '9', name: 'Bartosz Woźniak', class: '6B', age: 13,
@@ -183,6 +203,8 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 0, longestStreak: 1, bonusPoints: 0, lastWorkoutDate: '2026-02-28T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-08T10:00:00.000Z', plank: 45, sprint: 17.2, longJump: 210 }],
+    rankId: 0,
+    earnedMedals: [],
   },
   {
     id: '10', name: 'Oliwia Dąbrowska', class: '6A', age: 12,
@@ -194,5 +216,7 @@ export const MOCK_STUDENTS: Athlete[] = [
     currentStreak: 6, longestStreak: 10, bonusPoints: 80, lastWorkoutDate: '2026-03-19T10:00:00.000Z',
     recentExercises: [], recentAchievements: [],
     testResults: [{ date: '2026-03-19T10:00:00.000Z', plank: 135, sprint: 13.5, longJump: 400 }],
+    rankId: 0,
+    earnedMedals: [],
   }
-];
+];

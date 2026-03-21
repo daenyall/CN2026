@@ -11,6 +11,9 @@ import * as Sharing from 'expo-sharing';
 import { LineChart } from 'react-native-chart-kit';
 
 import { MOCK_STUDENTS, Athlete } from '../data/MockStudents';
+import { AchievementsBoard } from '../components/AchievementsBoard';
+import { ExerciseRanksCard } from '../components/ExerciseRanksCard';
+import { calculateExerciseRanks, calculateAverageRankId } from '../utils/rankCalculator';
 
 interface StudentProfileProps {
   studentId?: string;
@@ -300,6 +303,17 @@ export default function StudentProfile({ studentId, onClose }: StudentProfilePro
     { label: 'Zwin.', value: student.stats.agility },
   ];
 
+  // Rangi per ćwiczenie – wyciągnij najlepsze wyniki z testResults
+  const bestResults: Record<string, number> = {};
+  if (student.testResults?.length > 0) {
+    const last = student.testResults[student.testResults.length - 1];
+    if (last.plank) bestResults['plank'] = last.plank;
+    if (last.sprint) bestResults['run100'] = last.sprint;
+    if (last.longJump) bestResults['jump'] = last.longJump;
+  }
+  const exerciseRanks = calculateExerciseRanks(bestResults);
+  const averageRankId = calculateAverageRankId(exerciseRanks);
+
   const maxStat = Math.max(...statsArray.map(s => s.value));
   const minStat = Math.min(...statsArray.map(s => s.value));
 
@@ -376,6 +390,17 @@ export default function StudentProfile({ studentId, onClose }: StudentProfilePro
                 </View>
               );
             })}
+          </View>
+
+          {/* Rangi i Medale */}
+          <View style={styles.sectionSpacing}>
+            <Text style={styles.sectionTitle}>🎖️ Rangi i Medale</Text>
+            <AchievementsBoard rankId={averageRankId} earnedMedals={student.earnedMedals} />
+          </View>
+
+          {/* Rangi per ćwiczenie (rozwijana karta) */}
+          <View style={styles.sectionSpacing}>
+            <ExerciseRanksCard exerciseRanks={exerciseRanks} averageRankId={averageRankId} />
           </View>
 
           {/* Wykres Progresu Wagi */}
