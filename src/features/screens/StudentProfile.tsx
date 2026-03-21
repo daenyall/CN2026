@@ -20,6 +20,7 @@ import { ExerciseRanksCard } from '../components/ExerciseRanksCard';
 import { calculateExerciseRanks, calculateAverageRankId } from '../utils/rankCalculator';
 
 interface StudentProfileProps {
+  route?: any;
   studentId?: string; // Przekazywane przez nauczyciela
   onClose?: () => void;
 }
@@ -85,7 +86,8 @@ function RadarChart({ data, size = 320, themeColor = Colors.neonGreen }: { data:
 }
 
 // --- MAIN COMPONENT ---
-export default function StudentProfile({ studentId, onClose }: StudentProfileProps) {
+export default function StudentProfile({ route, studentId: propStudentId, onClose }: StudentProfileProps) {
+  const studentId = propStudentId || route?.params?.studentId;
   const [student, setStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -340,7 +342,7 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               --neon-green: #00FF66;
               --neon-glow: rgba(0, 255, 102, 0.4);
               --text-main: #FFFFFF;
-              --text-muted: #8F9BB3;
+              --text-muted: #A0AABF;
             }
             body { 
               font-family: 'Inter', sans-serif; 
@@ -386,8 +388,8 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               margin-bottom: 40px; 
             }
             .header h1 { margin: 0; color: var(--neon-green); font-size: 38px; text-transform: uppercase; letter-spacing: 3px; font-weight: 900; text-shadow: 0 0 10px var(--neon-glow); }
-            .header p { color: var(--text-muted); font-size: 14px; text-transform: uppercase; margin: 5px 0 0; letter-spacing: 2px; }
-            .section-title { font-size: 18px; color: var(--text-main); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; display: inline-block; padding-bottom: 5px; border-bottom: 2px solid var(--neon-green); font-weight: 800; }
+            .header p { color: var(--text-muted); font-size: 15px; font-weight: 500; text-transform: uppercase; margin: 5px 0 0; letter-spacing: 2px; }
+            .section-title { font-size: 20px; color: var(--text-main); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; display: inline-block; padding-bottom: 5px; border-bottom: 2px solid var(--neon-green); font-weight: 800; }
             
             .row { display: flex; gap: 30px; margin-bottom: 40px; }
             .col { flex: 1; }
@@ -402,8 +404,8 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               gap: 20px;
             }
             .info-item { display: flex; flex-direction: column; }
-            .info-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-            .info-value { font-size: 18px; color: var(--text-main); font-weight: 600; }
+            .info-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+            .info-value { font-size: 20px; color: var(--text-main); font-weight: 700; }
             
             .overall-badge {
               text-align: center;
@@ -433,7 +435,7 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               display: flex; flex-direction: column; align-items: center; justify-content: center;
             }
             .overall-value { font-size: 58px; font-weight: 900; color: var(--neon-green); text-shadow: 0 0 15px var(--neon-glow); line-height: 1; }
-            .overall-label { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-top: 5px; }
+            .overall-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
             
             .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 40px; }
             .stat-box {
@@ -447,15 +449,15 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               overflow: hidden;
             }
             .stat-bar-bg {
-              width: 100%; height: 4px; background: #1f2937; border-radius: 2px; margin-top: 15px; position: relative;
+              width: 100%; height: 6px; background: #1f2937; border-radius: 3px; margin-top: 15px; position: relative;
             }
             .stat-bar-fill {
-              position: absolute; top: 0; left: 0; height: 100%; background: var(--neon-green); border-radius: 2px; box-shadow: 0 0 8px var(--neon-glow);
+              position: absolute; top: 0; left: 0; height: 100%; background: var(--neon-green); border-radius: 3px; box-shadow: 0 0 8px var(--neon-glow);
             }
-            .stat-val { font-size: 26px; font-weight: 800; color: var(--text-main); margin-bottom: 5px; }
-            .stat-name { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+            .stat-val { font-size: 30px; font-weight: 800; color: var(--text-main); margin-bottom: 5px; }
+            .stat-name { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
 
-            .footer { text-align: center; margin-top: 60px; padding-top: 20px; border-top: 1px solid #1f2937; color: #5c6b89; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+            .footer { text-align: center; margin-top: 60px; padding-top: 20px; border-top: 1px solid #1f2937; color: #7F8B9E; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
           </style>
         </head>
         <body>
@@ -524,8 +526,8 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
             </div>
             
             <div class="info-card" style="display: block; margin-top: 30px;">
-              <div class="section-title" style="border: none; margin-bottom: 10px; font-size: 14px; padding: 0;">Ważne Informacje</div>
-              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin: 0;">Raport ma charakter wyłącznie informacyjny i przedstawia aktualny poziom rozwoju motorycznego. Wyniki i szacunki mogły ulec poprawie lub pogorszeniu w zależności od systematyczności treningowej. W przypadku pytań skontaktuj się ze swoim trenerem szkolnym.</p>
+              <div class="section-title" style="border: none; margin-bottom: 10px; font-size: 16px; padding: 0;">Ważne Informacje</div>
+              <p style="font-size: 14px; font-weight: 500; color: var(--text-muted); line-height: 1.6; margin: 0;">Raport ma charakter wyłącznie informacyjny i przedstawia aktualny poziom rozwoju motorycznego. Wyniki i szacunki mogły ulec poprawie lub pogorszeniu w zależności od systematyczności treningowej. W przypadku pytań skontaktuj się ze swoim trenerem szkolnym.</p>
             </div>
             
             <div class="footer">
