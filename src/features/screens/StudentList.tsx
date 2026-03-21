@@ -8,6 +8,9 @@ import { BottomNav } from '../components/BottomNav';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList } from '../routes';
 
+// TUTAJ BRAKOWAŁO IMPORTU:
+import { MOCK_STUDENTS } from '../data/MockStudents';
+
 export default function StudentList() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'best' | 'streak' | 'inactive'>('all');
@@ -27,6 +30,8 @@ export default function StudentList() {
       streak: athlete.currentStreak,
       trend,
       active: isActive,
+      // Symulujemy, że niektórzy uczniowie (np. pierwszy, trzeci) mają testy do zatwierdzenia na potrzeby dema
+      hasPendingTests: index === 0 || index === 2 || index === 5,
     };
   });
 
@@ -38,13 +43,14 @@ export default function StudentList() {
     { id: 'pending' as const, label: 'Do zatwierdzenia' },
   ];
 
-  const filteredStudents = students.filter((student) => {
-    if (activeFilter === 'best') return student.score >= 75;
-    if (activeFilter === 'streak') return student.streak >= 7;
-    if (activeFilter === 'inactive') return !student.active;
-    if (activeFilter === 'pending') return student.hasPendingTests;
-    return true;
-  })
+  const filteredStudents = students
+    .filter((student) => {
+      if (activeFilter === 'best') return student.score >= 75;
+      if (activeFilter === 'streak') return student.streak >= 7;
+      if (activeFilter === 'inactive') return !student.active;
+      if (activeFilter === 'pending') return student.hasPendingTests;
+      return true;
+    })
     .sort((a, b) => {
       if (activeFilter === 'best') {
         return b.score - a.score;
@@ -55,7 +61,6 @@ export default function StudentList() {
       if (activeFilter === 'pending' || activeFilter === 'inactive' || activeFilter === 'all') {
         const nazwiskoA = a.name.split(' ').slice(1).join(' ') || a.name;
         const nazwiskoB = b.name.split(' ').slice(1).join(' ') || b.name;
-
         return nazwiskoA.localeCompare(nazwiskoB);
       }
       return 0;
@@ -82,6 +87,7 @@ export default function StudentList() {
       text: { color: Colors.neonGreen },
     };
   };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -107,7 +113,7 @@ export default function StudentList() {
                   style={[
                     styles.filterButton,
                     activeFilter === filter.id ? styles.filterButtonActive : styles.filterButtonInactive,
-                    filter.id === 'pending' && activeFilter !== 'pending' && styles.filterButtonPending, // Wyróżnienie zakładki zatwierdzeń
+                    filter.id === 'pending' && activeFilter !== 'pending' && styles.filterButtonPending,
                   ]}
                   activeOpacity={0.7}
                   onPress={() => setActiveFilter(filter.id)}
