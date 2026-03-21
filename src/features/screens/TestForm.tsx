@@ -47,7 +47,7 @@ type ActiveExercise = {
 function ProgressBar({ percent, forceTrigger }: { percent: number, forceTrigger: number }) {
   const animatedWidth = useRef(new Animated.Value(0)).current;
   const flameAnim = useRef(new Animated.Value(0)).current;
-  
+
   const [targetPercent, setTargetPercent] = useState(0);
 
   // Debounce: 2 sekundy bez wpisywania
@@ -194,7 +194,7 @@ export default function TestForm() {
 
   const getBestValue = (ex: ActiveExercise, exerciseDef: any) => {
     if (ex.sets.length === 0) return 0;
-    
+
     const values = ex.sets.map(s => {
       if (exerciseDef.type === 'weight_reps') return parseFloat(s.weightValue) || 0;
       return parseFloat(s.value) || 0;
@@ -210,9 +210,9 @@ export default function TestForm() {
   const getPercent = (ex: ActiveExercise, exerciseDef: any) => {
     const num = getBestValue(ex, exerciseDef);
     if (num === 0) return 0;
-    
+
     const avg = exerciseDef.average;
-    
+
     if (exerciseDef.scoring === 'lower') {
       return (avg / num) * 100;
     }
@@ -229,13 +229,13 @@ export default function TestForm() {
     activeExercises.forEach(ex => {
       const exerciseDef = EXERCISES.find(e => e.id === ex.exerciseId);
       if (ex.sets.length === 0) hasErrors = true;
-      
+
       ex.sets.forEach(set => {
         const valNum = parseFloat(set.value);
         if (isNaN(valNum) || valNum < 0 || set.value.trim() === '') hasErrors = true;
         if (exerciseDef?.type === 'weight_reps' && set.weightValue.trim() !== '') {
-           const weightNum = parseFloat(set.weightValue);
-           if (isNaN(weightNum) || weightNum < 0) hasErrors = true;
+          const weightNum = parseFloat(set.weightValue);
+          if (isNaN(weightNum) || weightNum < 0) hasErrors = true;
         }
       });
     });
@@ -270,7 +270,7 @@ export default function TestForm() {
     if (hasAnomaly) {
       setShowAnomalyModal(true);
     } else {
-      Alert.alert('Zapis', 'Pakiet wyników przekazany do systemu.', [
+      Alert.alert('Zapis wysłany', 'Wyniki zostały przesłane. Czekają na zatwierdzenie przez nauczyciela.', [
         { text: 'OK', onPress: () => navigation.navigate('StudentProfile') },
       ]);
     }
@@ -289,7 +289,7 @@ export default function TestForm() {
           {activeExercises.map((ex) => {
             const exerciseDef = EXERCISES.find(e => e.id === ex.exerciseId)!;
             const bestResult = getBestValue(ex, exerciseDef);
-            
+
             return (
               <View key={ex.exerciseId} style={styles.fieldSpacing}>
                 <NeonCard>
@@ -308,7 +308,7 @@ export default function TestForm() {
                       {ex.sets.map((set, index) => (
                         <View key={set.setId} style={styles.setRow}>
                           <Text style={styles.setNumber}>{index + 1}</Text>
-                          
+
                           {exerciseDef.type === 'weight_reps' ? (
                             <View style={styles.setInputsWeight}>
                               <View style={styles.halfInput}>
@@ -347,13 +347,13 @@ export default function TestForm() {
                               />
                             </View>
                           )}
-                          
+
                           <TouchableOpacity onPress={() => removeSet(ex.exerciseId, set.setId)} style={styles.removeSetBtn}>
                             <X size={18} color={Colors.gray} />
                           </TouchableOpacity>
                         </View>
                       ))}
-                      
+
                       <TouchableOpacity onPress={() => addSet(ex.exerciseId)} style={styles.addSetBtn}>
                         <Text style={styles.addSetBtnText}>+ Inicjalizuj Serię</Text>
                       </TouchableOpacity>
@@ -436,7 +436,9 @@ export default function TestForm() {
         isOpen={showAnomalyModal}
         onClose={() => setShowAnomalyModal(false)}
         onConfirm={() => {
-          Alert.alert('Status', 'Pakiet nadpisany. Wysłano pomyślnie.');
+          Alert.alert('Status', 'Wysłano pomyślnie. Wynik czeka na weryfikację nauczyciela.', [
+            { text: 'OK', onPress: () => navigation.navigate('StudentProfile') }
+          ]);
         }}
       />
 
@@ -451,8 +453,8 @@ export default function TestForm() {
             </View>
             <ScrollView>
               {EXERCISES.map((exercise) => (
-                <TouchableOpacity 
-                  key={exercise.id} 
+                <TouchableOpacity
+                  key={exercise.id}
                   style={styles.modalItem}
                   onPress={() => addExercise(exercise.id)}
                 >
@@ -489,7 +491,7 @@ const styles = StyleSheet.create({
   bestResultText: { color: Colors.neonGreen, fontSize: FontSize.xs, fontWeight: 'bold' },
   progressSection: { marginTop: Spacing.sm },
   progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.xs },
-  
+
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
   photoHeaderText: { color: Colors.white, fontWeight: '600', fontSize: FontSize.base },
   photoButton: { width: '100%', paddingVertical: Spacing.xxl, borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(0, 230, 118, 0.3)', borderRadius: BorderRadius.sm, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
@@ -505,7 +507,7 @@ const styles = StyleSheet.create({
   emptyStateText: { color: Colors.gray, fontSize: FontSize.base, textAlign: 'center', marginBottom: Spacing.xl, fontStyle: 'italic' },
   fieldHeaderDynamic: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   fieldHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  
+
   setsContainer: { marginVertical: Spacing.sm },
   setRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
   setNumber: { color: Colors.gray, fontSize: FontSize.sm, fontWeight: 'bold', width: 20, textAlign: 'center' },
@@ -516,10 +518,10 @@ const styles = StyleSheet.create({
   removeSetBtn: { padding: Spacing.xs },
   addSetBtn: { marginTop: Spacing.xs, paddingVertical: Spacing.sm, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
   addSetBtnText: { color: Colors.neonGreen, fontSize: FontSize.sm, fontWeight: '600' },
-  
+
   addExerciseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, width: '100%', paddingVertical: Spacing.md, borderRadius: BorderRadius.full, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.5)', marginBottom: Spacing.xl },
   addExerciseText: { color: Colors.neonGreen, fontSize: FontSize.base, fontWeight: '700' },
-  
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.bgDeep, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', padding: Spacing.xl, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.2)' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
