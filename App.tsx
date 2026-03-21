@@ -27,7 +27,7 @@ import { seedStudentsToFirestore } from './src/features/utils/seedFirestore';
  * - Wybierz "Jestem Uczniem" -> Student Dashboard
  *
  * Tryb Ucznia: Dashboard -> Profile (wykres radarowy) -> Test -> Streak -> Ranking
- * Tryb Nauczyciela: Dashboard -> Students -> Team -> Reports
+ * Tryb Nauczyciela: Dashboard -> Students -> Team -> Reports -> HeatMap
  */
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -71,6 +71,8 @@ function TeacherTabNavigator() {
       <TeacherTab.Screen name="StudentList" component={StudentList} />
       <TeacherTab.Screen name="TeamRecruitment" component={TeamRecruitment} />
       <TeacherTab.Screen name="ReportExport" component={ReportExport} />
+      {/* ZMIANA: Podpinamy mapę dla nauczyciela pod unikalną nazwą! */}
+      <TeacherTab.Screen name="TeacherHeatMapScreen" component={HeatMapScreen} />
     </TeacherTab.Navigator>
   );
 }
@@ -109,4 +111,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-

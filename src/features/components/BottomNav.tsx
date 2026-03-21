@@ -25,29 +25,23 @@ const INDICATOR_RADIUS = 24;
 const BAR_PADDING_BOTTOM = 28;
 const BAR_PADDING_VERTICAL = 10;
 
-const ICON_MAP: Record<string, typeof Home> = {
-  StudentDashboard: Home,
-  TestForm: ClipboardList,
-  StudentProfile: User,
-  RankingScreen: Trophy,
-  HeatMapScreen: Map,
-  TeacherDashboard: Home,
-  StudentList: Users,
-  TeamRecruitment: Award,
-  ReportExport: FileText,
-};
+// Definiujemy elementy menu dla Ucznia i Nauczyciela
+const STUDENT_ITEMS = [
+  { name: 'StudentDashboard', label: 'Dom', Icon: Home },
+  { name: 'TestForm', label: 'Testy', Icon: ClipboardList },
+  { name: 'StudentProfile', label: 'Profil', Icon: User },
+  { name: 'RankingScreen', label: 'Ranking', Icon: Trophy },
+  { name: 'HeatMapScreen', label: 'Mapa', Icon: Map },
+];
 
-const LABEL_MAP: Record<string, string> = {
-  StudentDashboard: 'Dom',
-  TestForm: 'Testy',
-  StudentProfile: 'Profil',
-  RankingScreen: 'Ranking',
-  HeatMapScreen: 'Mapa',
-  TeacherDashboard: 'Dom',
-  StudentList: 'Uczniowie',
-  TeamRecruitment: 'Kadra',
-  ReportExport: 'Raporty',
-};
+const TEACHER_ITEMS = [
+  { name: 'TeacherDashboard', label: 'Dom', Icon: Home },
+  { name: 'StudentList', label: 'Uczniowie', Icon: Users },
+  { name: 'TeamRecruitment', label: 'Kadra', Icon: Award },
+  { name: 'ReportExport', label: 'Raporty', Icon: FileText },
+  // ZMIANA: Unikalna nazwa ekranu dla mapy nauczyciela!
+  { name: 'TeacherHeatMapScreen', label: 'Mapa', Icon: Map },
+];
 
 type BottomNavProps = MaterialTopTabBarProps & { type: 'student' | 'teacher' };
 
@@ -63,15 +57,18 @@ function LiquidTabBar({
   state,
   navigation,
   position,
-}: MaterialTopTabBarProps) {
+  type, // Odbieramy typ z propsów BottomNav
+}: BottomNavProps) {
   if (!state || !state.routes) return null;
+
+  // Wybieramy odpowiednią listę itemów na podstawie typu
+  const configItems = type === 'student' ? STUDENT_ITEMS : TEACHER_ITEMS;
 
   const routeCount = state.routes.length;
   const tabWidth = SCREEN_WIDTH / routeCount;
   const indicatorWidth = tabWidth * 0.8;
   const centerOffset = (tabWidth - indicatorWidth) / 2;
 
-  // ── translateX: slide indicator, centered under active icon ──
   const inputRange = state.routes.map((_: any, i: number) => i);
   const translateX = position.interpolate({
     inputRange,
@@ -79,8 +76,6 @@ function LiquidTabBar({
     extrapolate: 'clamp',
   });
 
-  // ── scaleX: liquid stretch between tabs ──
-  // integers → 1, half-steps → 1.5
   const scaleInput: number[] = [];
   const scaleOutput: number[] = [];
   for (let i = 0; i < routeCount; i++) {
@@ -100,7 +95,6 @@ function LiquidTabBar({
 
   return (
     <View style={styles.container}>
-      {/* Liquid indicator (behind icons) */}
       <Animated.View
         style={[
           styles.indicator,
@@ -112,12 +106,11 @@ function LiquidTabBar({
         ]}
       />
 
-      {/* Tab buttons */}
       {state.routes.map((route: any, index: number) => {
-        const IconComponent = ICON_MAP[route.name] ?? Home;
-        const label = LABEL_MAP[route.name] ?? route.name;
+        const routeConfig = configItems.find((item) => item.name === route.name);
+        const IconComponent = routeConfig?.Icon ?? Home;
+        const label = routeConfig?.label ?? route.name;
 
-        // ── Position-driven animated color (no state.index) ──
         const isFirst = index === 0;
         const isLast = index === routeCount - 1;
 
@@ -160,13 +153,13 @@ function LiquidTabBar({
                 canPreventDefault: true,
               });
               if (!event.defaultPrevented) {
-                navigation.navigate({ name: route.name, merge: true } as any);
+                // ZMIANA: Przekazujemy typ (student/teacher) w parametrach
+                navigation.navigate({ name: route.name, params: { userType: type }, merge: true } as any);
               }
             }}
             style={styles.tab}
             activeOpacity={0.7}
           >
-            {/* Icon cross-fade: two layers with animated opacity */}
             <View style={styles.iconContainer}>
               <Animated.View style={{ opacity: inactiveOpacity }}>
                 <IconComponent size={22} color={Colors.gray} strokeWidth={2.2} />
@@ -191,10 +184,6 @@ function LiquidTabBar({
     </View>
   );
 }
-
-/* ──────────────────────────────────────────────────
-   Styles
-   ────────────────────────────────────────────────── */
 
 const styles = StyleSheet.create({
   container: {

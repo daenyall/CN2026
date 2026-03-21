@@ -13,6 +13,7 @@ export type TeacherTabParamList = {
   StudentList: undefined;
   TeamRecruitment: undefined;
   ReportExport: undefined;
+  TeacherHeatMapScreen: undefined;
 };
 
 export type RootStackParamList = {

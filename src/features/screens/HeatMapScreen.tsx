@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Image, Dimensions, ScrollView, Animated } from 
 import { MapPin } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
+import { useRoute } from '@react-navigation/native';
+import { BottomNav } from '../components/BottomNav';
 
 const { width } = Dimensions.get('window');
 
