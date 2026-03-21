@@ -279,6 +279,13 @@ export default function StudentProfile({ studentId, onClose }: StudentProfilePro
           { date: new Date().toISOString(), weight: newWeight }
         ];
       }
+
+      // Aktualizujemy globalny stan MOCK_STUDENTS "żeby updatowało się wszędzie" po zamknięciu modal'a.
+      const index = MOCK_STUDENTS.findIndex(s => s.id === prev.id);
+      if (index !== -1) {
+        MOCK_STUDENTS[index] = updated;
+      }
+
       return updated;
     });
     setEditModalVisible(false);
