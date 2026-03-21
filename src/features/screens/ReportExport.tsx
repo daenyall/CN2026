@@ -13,6 +13,8 @@ import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { EXERCISES } from '../config/exercises';
+
 export default function ReportExport() {
   const [isLoading, setIsLoading] = useState(true);
   const [teacherSchool, setTeacherSchool] = useState<string>('Wczytywanie placówki...');
@@ -21,6 +23,7 @@ export default function ReportExport() {
   const [totalStudents, setTotalStudents] = useState(0);
   const [averageScore, setAverageScore] = useState(0);
   const [totalStreaks, setTotalStreaks] = useState(0);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
 
   const reportItems = [
     `Zestawienie uczniów (${totalStudents})`,
@@ -61,6 +64,7 @@ export default function ReportExport() {
       let count = 0;
       let scoreSum = 0;
       let streaks = 0;
+      let loadedStudents: any[] = [];
 
       snapshot.forEach(document => {
         const data = document.data();
@@ -68,6 +72,7 @@ export default function ReportExport() {
 
         if (studentSchool === targetSchoolLower) {
           count++;
+          loadedStudents.push(data);
 
           // Pobieramy wynik z bezpiecznym fallbackiem
           const score = data.overall ?? data.stats?.overall ?? 0;
@@ -82,6 +87,7 @@ export default function ReportExport() {
       });
 
       setTotalStudents(count);
+      setStudentsList(loadedStudents);
       if (count > 0) {
         setAverageScore(Math.round(scoreSum / count));
       } else {
@@ -108,6 +114,39 @@ export default function ReportExport() {
     }
 
     try {
+      let tableRows = '';
+      
+      const sortedStudents = [...studentsList].sort((a, b) => (b.overall || 0) - (a.overall || 0));
+      
+      sortedStudents.forEach((student, index) => {
+        const getBest = (exId: string) => {
+          const results = student.testResults || [];
+          let best: number | null = null;
+          const isLower = EXERCISES.find(e => e.id === exId)?.scoring === 'lower';
+          
+          results.forEach((test: any) => {
+            const ex = test.exercises?.find((e: any) => e.exerciseId === exId);
+            if (ex && ex.bestValue > 0) {
+              if (best === null) best = ex.bestValue;
+              else if (isLower) best = Math.min(best, ex.bestValue);
+              else best = Math.max(best, ex.bestValue);
+            }
+          });
+          return best !== null ? best : '-';
+        };
+
+        tableRows += `
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px;">${index + 1}</td>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px; font-weight: 600;">${student.name || student.email || 'Brak danych'}</td>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px; text-align: center; color: var(--color-primary); font-weight: bold;">${getBest('plank')}</td>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px; text-align: center; color: var(--color-primary); font-weight: bold;">${getBest('run100')}</td>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px; text-align: center; color: var(--color-primary); font-weight: bold;">${getBest('jump')}</td>
+            <td style="padding: 12px; border-bottom: 1px dashed var(--color-border); font-size: 15px; text-align: center; font-weight: 800; color: #0F172A;">${student.overall || 0} OVR</td>
+          </tr>
+        `;
+      });
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -233,7 +272,24 @@ export default function ReportExport() {
                 <div class="stat-label">Systematycznych</div>
               </div>
             </div>
-
+            <div class="content-section">
+              <div class="section-title">Wyniki Uczniów (${totalStudents})</div>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                  <tr style="background-color: var(--color-light-gray); border-bottom: 2px solid var(--color-border);">
+                    <th style="padding: 12px; text-align: left; font-size: 14px; color: #475569;">#</th>
+                    <th style="padding: 12px; text-align: left; font-size: 14px; color: #475569;">Imię i Nazwisko</th>
+                    <th style="padding: 12px; text-align: center; font-size: 14px; color: #475569;">Plank (s)</th>
+                    <th style="padding: 12px; text-align: center; font-size: 14px; color: #475569;">100m (s)</th>
+                    <th style="padding: 12px; text-align: center; font-size: 14px; color: #475569;">Skok w dal (cm)</th>
+                    <th style="padding: 12px; text-align: center; font-size: 14px; color: #475569;">OVR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+              </table>
+            </div>
             <div class="content-section">
               <div class="section-title">Podsumowanie Placówki</div>
               <p style="color: #475569; line-height: 1.6; font-size: 15px;">Powyższy raport przedstawia zbiorcze podsumowanie aktywności sportowej uczniów analizowanej szkoły na platformie <strong>SportRecrut</strong>. Algorytmy sztucznej inteligencji zweryfikowały postępy na podstawie wprowadzonych ćwiczeń oraz przeprowadzonych sprawdzianów terenowych.</p>

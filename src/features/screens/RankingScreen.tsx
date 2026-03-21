@@ -4,8 +4,8 @@ import { Medal, TrendingUp, TrendingDown, Flame } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import { MOCK_STUDENTS } from '../data/MockStudents';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
 import StudentProfile from './StudentProfile';
 
 export default function RankingScreen() {
@@ -20,56 +20,48 @@ export default function RankingScreen() {
 
   const fetchRankings = async () => {
     try {
+      const currentUser = auth.currentUser;
+      let targetSchool = '';
+      if (currentUser) {
+        const uDoc = await getDoc(doc(db, 'students', currentUser.uid));
+        targetSchool = (uDoc.data()?.school || '').trim().toLowerCase();
+      }
+
       const usersSnap = await getDocs(collection(db, 'students'));
       let usersList: any[] = [];
       usersSnap.forEach((doc) => {
         usersList.push({ ...doc.data(), id: doc.id });
       });
 
-      // Combine MOCK_STUDENTS and Firebase users
-      const allStudentsMap = new Map();
+      // Filter to same school (or fallback to all if no school set for safety)
+      let studentsInSchool = usersList.filter(u => 
+        !targetSchool || (u.school && u.school.trim().toLowerCase() === targetSchool)
+      );
 
-      MOCK_STUDENTS.forEach(mockStudent => {
-        allStudentsMap.set(mockStudent.id, { ...mockStudent });
-      });
+      // If no real students in school yet, fallback to mock so UI doesn't look broken,
+      // but only if NO real students exist in school.
+      if (studentsInSchool.length === 0) {
+        studentsInSchool = [...MOCK_STUDENTS];
+      }
 
-      usersList.forEach(fireStudent => {
-        const id = fireStudent.uid || fireStudent.id;
-        const existing = allStudentsMap.get(id);
-        
-        const stats = fireStudent.stats || (existing ? existing.stats : null);
-        let score = fireStudent.overall;
-        
-        if (!score && stats) {
-          score = Math.round(((stats.speed||0) + (stats.strength||0) + (stats.stamina||0) + (stats.jump||0) + (stats.agility||0)) / 5);
-        }
-        
-        if (!score && existing) {
-          score = existing.overall;
-        }
-
-        allStudentsMap.set(id, {
-          ...(existing || {}),
-          ...fireStudent,
-          overall: score || 0,
-          id: id
-        });
-      });
-
-      const mergedStudents = Array.from(allStudentsMap.values());
-
-      const sorted = mergedStudents
-        .sort((a, b) => (b.overall || 0) - (a.overall || 0))
-        .slice(0, 10)
+      const sorted = studentsInSchool
+        .map(student => {
+          let score = student.overall;
+          if (!score && student.stats) {
+            score = Math.round(((student.stats.speed||0) + (student.stats.strength||0) + (student.stats.stamina||0) + (student.stats.jump||0) + (student.stats.agility||0)) / 5);
+          }
+          return { ...student, score: score || 0 };
+        })
+        .sort((a, b) => b.score - a.score)
         .map((s, index) => ({
           rank: index + 1,
           name: s.name || s.displayName || 'Brak Imienia',
           class: s.class || '-',
-          score: s.overall || 0,
+          score: s.score,
           streak: s.currentStreak || 0,
           trend: index % 4 === 0 ? 'down' : (index % 2 === 0 ? 'up' : 'same'),
           id: s.id,
-          avatar: s.avatar || s.photoURL
+          avatar: s.avatar || s.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || 'Brak')}&&background=00E676&color=fff`
         }));
 
       setLiveRankings(sorted);
@@ -167,7 +159,6 @@ export default function RankingScreen() {
             {liveRankings.map((player) => {
               const medalColor = getMedalColor(player.rank);
               const isFirst = player.rank === 1;
-              const matchingStudent = MOCK_STUDENTS.find(s => s.name === player.name);
 
               return (
                 <TouchableOpacity
@@ -208,8 +199,8 @@ export default function RankingScreen() {
                           { overflow: 'hidden', padding: 0 }
                         ]}
                       >
-                        {matchingStudent?.avatar && matchingStudent.avatar.startsWith('http') ? (
-                          <Image source={{ uri: matchingStudent.avatar }} style={{ width: '100%', height: '100%' }} />
+                        {player.avatar && player.avatar.startsWith('http') ? (
+                          <Image source={{ uri: player.avatar }} style={{ width: '100%', height: '100%' }} />
                         ) : (
                           <Text style={{ fontSize: isFirst ? 20 : 16 }}>👤</Text>
                         )}
