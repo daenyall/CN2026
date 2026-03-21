@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import StudentProfile from './StudentProfile';
-import { Flame, TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Clock } from 'lucide-react-native';
+import { Flame, TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Clock, School } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
@@ -11,7 +11,6 @@ import { db, auth } from '../config/firebase';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
-
 
 type StudentListNav = CompositeNavigationProp<
   MaterialTopTabNavigationProp<TeacherTabParamList, 'StudentList'>,
@@ -26,26 +25,33 @@ export default function StudentList() {
   // STANY DLA DANYCH Z FIREBASE
   const [firebaseStudents, setFirebaseStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [teacherSchoolName, setTeacherSchoolName] = useState<string>('Wczytywanie placówki...');
 
   // POBIERANIE DANYCH Z FIREBASE TYLKO DLA SZKOŁY NAUCZYCIELA
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         const currentUser = auth.currentUser;
-        if (!currentUser) return;
-
-        // 1. Pobieramy profil nauczyciela, żeby sprawdzić, do jakiej szkoły uczy
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        const teacherSchool = userDoc.data()?.school;
-
-        if (!teacherSchool) {
-          console.log("Nauczyciel nie ma przypisanej szkoły!");
+        if (!currentUser) {
           setIsLoading(false);
           return;
         }
 
+        // 1. Pobieramy profil nauczyciela, żeby sprawdzić, do jakiej szkoły uczy
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        const schoolName = userDoc.data()?.school;
+
+        if (!schoolName) {
+          setTeacherSchoolName("Brak przypisanej placówki");
+          setIsLoading(false);
+          return;
+        }
+
+        // Ustawiamy nazwę szkoły do wyświetlenia w nagłówku
+        setTeacherSchoolName(schoolName);
+
         // 2. Pobieramy z Firestore TYLKO uczniów z tej samej placówki!
-        const q = query(collection(db, 'students'), where('school', '==', teacherSchool));
+        const q = query(collection(db, 'students'), where('school', '==', schoolName));
         const querySnapshot = await getDocs(q);
 
         const fetchedData = querySnapshot.docs.map(document => ({
@@ -56,6 +62,7 @@ export default function StudentList() {
         setFirebaseStudents(fetchedData);
       } catch (error) {
         console.error("Błąd pobierania uczniów z Firebase: ", error);
+        setTeacherSchoolName("Błąd połączenia z bazą");
       } finally {
         setIsLoading(false);
       }
@@ -71,17 +78,18 @@ export default function StudentList() {
 
     const isActive = (athlete.currentStreak || 0) > 0;
     let trend: 'up' | 'down' | 'same' = 'same';
-    if (athlete.overall >= 75) trend = 'up';
-    else if (athlete.overall < 60) trend = 'down';
+    if (overallScore >= 75) trend = 'up';
+    else if (overallScore < 60) trend = 'down';
 
     return {
       id: athlete.id,
-      name: athlete.name,
+      name: athlete.name || 'Nieznany Uczeń',
       number: index + 1,
-      score: athlete.overall,
-      streak: athlete.currentStreak,
+      score: overallScore,
+      streak: athlete.currentStreak || 0,
       trend,
       active: isActive,
+      class: athlete.class || 'Brak danych',
       // Symulujemy, że niektórzy uczniowie (np. pierwszy, trzeci) mają testy do zatwierdzenia na potrzeby dema
       hasPendingTests: index === 0 || index === 2 || index === 5,
     };
@@ -144,11 +152,25 @@ export default function StudentList() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.innerPadding}>
-          {/* Header */}
+
+          {/* Header - Teraz dynamiczny! */}
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Klasa 6A</Text>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
+                {teacherSchoolName}
+              </Text>
+              <View style={styles.headerSubtitleRow}>
+                <School size={14} color={Colors.gray} />
+                <Text style={styles.headerSubtitle}>Twój Panel Placówki</Text>
+              </View>
+            </View>
+
             <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{MOCK_STUDENTS.length}</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color={Colors.neonGreen} />
+              ) : (
+                <Text style={styles.headerBadgeText}>{students.length}</Text>
+              )}
             </View>
           </View>
 
@@ -186,9 +208,14 @@ export default function StudentList() {
 
           {/* Students List */}
           <View style={styles.studentsList}>
-            {filteredStudents.length === 0 ? (
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.neonGreen} />
+                <Text style={styles.loadingText}>Ładowanie danych ze szkoły...</Text>
+              </View>
+            ) : filteredStudents.length === 0 ? (
               <Text style={{ color: Colors.gray, textAlign: 'center', marginTop: 20 }}>
-                Brak uczniów w tej kategorii. 🎉
+                Brak uczniów przypisanych do tej placówki. 🎉
               </Text>
             ) : filteredStudents.map((student) => {
               const scoreStyle = getScoreBadgeStyle(student.score);
@@ -229,7 +256,7 @@ export default function StudentList() {
                       </View>
 
                       <View style={styles.studentMeta}>
-                        <Text style={styles.studentClass}>#{student.number} w klasie</Text>
+                        <Text style={styles.studentClass}>Klasa {student.class}</Text>
                         {student.streak >= 7 && student.active && (
                           <View style={styles.streakBadge}>
                             <Flame size={12} color={Colors.orange} />
@@ -292,10 +319,17 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 80 },
   innerPadding: { padding: Spacing.xl, paddingTop: 60 },
+
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
-  headerTitle: { color: Colors.white, fontSize: FontSize['2xl'], fontWeight: '800' },
-  headerBadge: { paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)' },
+  headerTitle: { color: Colors.white, fontSize: FontSize['xl'], fontWeight: '800' },
+  headerSubtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  headerSubtitle: { color: Colors.gray, fontSize: FontSize.xs, fontWeight: '600' },
+  headerBadge: { paddingHorizontal: Spacing.lg, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)', minWidth: 45, alignItems: 'center' },
   headerBadgeText: { color: Colors.neonGreen, fontWeight: '700', fontSize: FontSize.base },
+
+  loadingContainer: { marginTop: 60, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { color: Colors.gray, marginTop: 12, fontSize: FontSize.sm, fontWeight: '500' },
+
   filtersScroll: { marginBottom: Spacing.xl },
   filtersRow: { flexDirection: 'row', gap: Spacing.sm, paddingBottom: Spacing.sm },
   filterButton: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full },

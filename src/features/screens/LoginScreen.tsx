@@ -13,7 +13,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { Trophy, Mail, Lock, School, MapPin, ChevronDown, Check, ArrowLeft } from 'lucide-react-native';
+import { Trophy, Mail, Lock, School, MapPin, ChevronDown, Check, ArrowLeft, User, GraduationCap } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { NeonIcon } from '../components/NeonIcon';
@@ -77,6 +77,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // NOWE: Stan dla imienia i nazwiska
+  const [fullName, setFullName] = useState('');
+
   const [schoolsList, setSchoolsList] = useState<string[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
   const [isSchoolDropdownOpen, setSchoolDropdownOpen] = useState(false);
@@ -105,7 +108,6 @@ export default function LoginScreen() {
 
   // INICJALIZACJA: Pobieranie bazy i start głównych animacji
   useEffect(() => {
-    // 1. Animacje wjazdowe z oryginalnego projektu
     Animated.sequence([
       Animated.parallel([
         Animated.timing(contentOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
@@ -124,7 +126,6 @@ export default function LoginScreen() {
       Animated.timing(schoolOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
     ]).start();
 
-    // 2. Odbijający się puchar
     Animated.loop(
       Animated.sequence([
         Animated.timing(trophyBounce, { toValue: -10, duration: 1500, useNativeDriver: true }),
@@ -132,7 +133,6 @@ export default function LoginScreen() {
       ])
     ).start();
 
-    // 3. Pobieranie szkół z Firebase
     const fetchSchools = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'schools'));
@@ -152,7 +152,6 @@ export default function LoginScreen() {
 
   // PRZEJŚCIE DO FORMULARZA
   const handleSelectRole = (selectedRole: 'student' | 'teacher') => {
-    // Chowamy główne przyciski
     Animated.parallel([
       Animated.timing(btn1Opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       Animated.timing(btn2Opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
@@ -160,7 +159,6 @@ export default function LoginScreen() {
     ]).start(() => {
       setRole(selectedRole);
       setStep('auth_form');
-      // Pokazujemy formularz
       Animated.parallel([
         Animated.timing(formOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.timing(formTranslateY, { toValue: 0, duration: 400, useNativeDriver: true }),
@@ -191,6 +189,7 @@ export default function LoginScreen() {
     if (!validateEmail(email)) return Alert.alert('Błąd', 'Podaj poprawny adres e-mail.');
 
     if (!isLogin) {
+      if (!fullName.trim()) return Alert.alert('Błąd', 'Podaj imię i nazwisko.');
       if (password !== confirmPassword) return Alert.alert('Błąd', 'Hasła nie są identyczne.');
       if (password.length < 6) return Alert.alert('Błąd', 'Hasło musi mieć minimum 6 znaków.');
       if (!isAddingNewSchool && !selectedSchool) return Alert.alert('Błąd', 'Wybierz szkołę z listy.');
@@ -224,8 +223,10 @@ export default function LoginScreen() {
           });
         }
 
+        // Dodanie imienia i nazwiska do tworzonego dokumentu!
         await setDoc(doc(db, 'users', userCredential.user.uid), {
           email: email,
+          name: fullName.trim(),
           role: role,
           school: finalSchool,
           createdAt: new Date().toISOString()
@@ -235,7 +236,7 @@ export default function LoginScreen() {
         else navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
       }
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') Alert.alert('Błąd', 'Ten email jest zarejestrowany.');
+      if (error.code === 'auth/email-already-in-use') Alert.alert('Błąd', 'Ten email jest już zarejestrowany.');
       else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') Alert.alert('Błąd', 'Błędny email lub hasło.');
       else Alert.alert('Błąd autoryzacji', error.message);
     } finally {
@@ -245,14 +246,18 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      {/* Tło - Latające cząsteczki */}
+      {/* TŁO CZĄSTECZEK */}
       {particles.map((p) => (
         <FloatingParticle key={p.key} delay={p.delay} x={p.x} y={p.y} />
       ))}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View style={[styles.content, { opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }]}>
-
+        <Animated.View
+          style={[
+            styles.content,
+            { opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] },
+          ]}
+        >
           {/* HEADER Z PUCHAREM */}
           <Animated.View style={[styles.trophyContainer, { transform: [{ translateY: trophyBounce }] }]}>
             <View style={styles.trophyGlow}>
@@ -347,6 +352,20 @@ export default function LoginScreen() {
                     />
                   </View>
 
+                  {/* NOWE POLE: Imię i Nazwisko */}
+                  <View style={styles.inputWrapper}>
+                    <User size={20} color={Colors.gray} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Imię i nazwisko"
+                      placeholderTextColor={Colors.gray}
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                    />
+                  </View>
+
+                  {/* Wybór lub dodanie Szkoły */}
                   {!isAddingNewSchool && (
                     <View style={[styles.inputWrapper, { zIndex: 10 }]}>
                       <School size={20} color={Colors.gray} style={styles.inputIcon} />
@@ -460,8 +479,8 @@ const styles = StyleSheet.create({
   addSchoolToggleText: { color: Colors.orange, fontSize: FontSize.sm, fontWeight: '700' },
   newSchoolContainer: { gap: Spacing.md, marginTop: 4, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
 
-  primaryButton: { width: '100%', paddingVertical: Spacing.lg, borderRadius: BorderRadius.full, backgroundColor: Colors.neonGreen, alignItems: 'center', shadowColor: Colors.neonGreen, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 },
-  primaryButtonText: { color: Colors.bgDeep, fontWeight: '800', fontSize: FontSize.md },
+  primaryButton: { width: '100%', paddingVertical: Spacing.lg, borderRadius: BorderRadius.full, backgroundColor: Colors.neonGreen, alignItems: 'center', marginTop: Spacing.sm, shadowColor: Colors.neonGreen, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 },
+  primaryButtonText: { color: Colors.bgDeep, fontWeight: '800', fontSize: FontSize.md, letterSpacing: 1 },
 
   outlineButton: { width: '100%', paddingVertical: Spacing.lg, borderRadius: BorderRadius.full, borderWidth: 2, borderColor: Colors.neonGreen, backgroundColor: 'transparent', alignItems: 'center' },
   outlineButtonText: { color: Colors.neonGreen, fontWeight: '700', fontSize: FontSize.md },
