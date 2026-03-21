@@ -5,13 +5,12 @@ import { useNavigation, CompositeNavigationProp } from '@react-navigation/native
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
 import { NeonCard } from '../components/NeonCard';
+import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
 
-// IMPORTY FIREBASE
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebase';
 
 type StudentListNav = CompositeNavigationProp<
   MaterialTopTabNavigationProp<TeacherTabParamList, 'StudentList'>,
@@ -26,15 +25,32 @@ export default function StudentList() {
   const [firebaseStudents, setFirebaseStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // POBIERANIE DANYCH Z FIREBASE
+  // POBIERANIE DANYCH Z FIREBASE TYLKO DLA SZKOŁY NAUCZYCIELA
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'students'));
-        const fetchedData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        // 1. Pobieramy profil nauczyciela, żeby sprawdzić, do jakiej szkoły uczy
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        const teacherSchool = userDoc.data()?.school;
+
+        if (!teacherSchool) {
+          console.log("Nauczyciel nie ma przypisanej szkoły!");
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. Pobieramy z Firestore TYLKO uczniów z tej samej placówki!
+        const q = query(collection(db, 'students'), where('school', '==', teacherSchool));
+        const querySnapshot = await getDocs(q);
+
+        const fetchedData = querySnapshot.docs.map(document => ({
+          id: document.id,
+          ...document.data()
         }));
+
         setFirebaseStudents(fetchedData);
       } catch (error) {
         console.error("Błąd pobierania uczniów z Firebase: ", error);
