@@ -115,6 +115,13 @@ export default function StudentDashboard() {
     fetchStudentData();
   }, []);
 
+  const navCards = [
+    { emoji: '📝', label: 'Nowy Test', path: 'TestForm' as const },
+    { emoji: '👤', label: 'Profil', path: 'StudentProfile' as const },
+    { emoji: '🏆', label: 'Ranking', path: 'RankingScreen' as const },
+    { emoji: '🗺️', label: 'Mapa', path: 'HeatMapScreen' as const },
+  ];
+
   return (
     <View style={styles.container}>
       <ScrollView
