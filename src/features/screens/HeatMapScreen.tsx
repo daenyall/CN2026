@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, ScrollView, Animated, RefreshControl } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
@@ -31,7 +31,11 @@ export default function HeatMapScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl refreshing={false} onRefresh={() => {}} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+              }
+            >
 
                 {/* Nagłówek */}
                 <View style={styles.header}>

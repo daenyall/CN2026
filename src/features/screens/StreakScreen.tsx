@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Animated, RefreshControl } from 'react-native';
 import { Flame, Trophy, Zap, Crown } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
@@ -9,6 +9,15 @@ import { updateStreak, getBonusPoints, getStreakMilestone } from '../utils/strea
 export default function StreakScreen() {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [bonusPoints, setBonusPoints] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    updateStreak().then((streak) => {
+      setCurrentStreak(streak);
+      setBonusPoints(getBonusPoints(streak));
+    }).finally(() => setRefreshing(false));
+  }, []);
 
   const counterScale = useRef(new Animated.Value(0.8)).current;
   const flameScale = useRef(new Animated.Value(1)).current;
@@ -80,7 +89,13 @@ export default function StreakScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+        }
+      >
         <View style={styles.innerPadding}>
           <Text style={styles.screenTitle}>🔥 Twoja Passa Treningowa</Text>
 

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
-import { BarChart3, Play, Trophy, Map, Flame, Gift } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Image, RefreshControl } from 'react-native';
+import { BarChart3, Play, Trophy, Map, Flame, Gift, LogOut } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
@@ -10,6 +10,9 @@ import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, StudentTabParamList } from '../routes';
 
 import { MOCK_STUDENTS } from '../data/MockStudents';
+import { auth } from '../config/firebase';
+import { signOut } from 'firebase/auth';
+import { CommonActions } from '@react-navigation/native';
 
 type DashboardNavProp = CompositeNavigationProp<
   MaterialTopTabNavigationProp<StudentTabParamList, 'StudentDashboard'>,
@@ -19,6 +22,23 @@ type DashboardNavProp = CompositeNavigationProp<
 export default function StudentDashboard() {
   const student = MOCK_STUDENTS[0];
   const navigation = useNavigation<DashboardNavProp>();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
+      );
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+  };
 
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerTranslateX = useRef(new Animated.Value(-20)).current;
@@ -56,7 +76,13 @@ export default function StudentDashboard() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Animated.View
@@ -64,27 +90,32 @@ export default function StudentDashboard() {
           >
             <Text style={styles.headerTitle}>Cześć, {student.name.split(' ')[0]}! 👋</Text>
           </Animated.View>
-          <Animated.View
-            style={[
-              styles.avatar,
-              {
-                transform: [{ scale: avatarScale }],
-                shadowColor: Colors.neonGreen,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.4,
-                shadowRadius: 10,
-                elevation: 6,
-                padding: 0,
-                overflow: 'hidden'
-              },
-            ]}
-          >
-            {student.avatar && student.avatar.startsWith('http') ? (
-              <Image source={{ uri: student.avatar }} style={{ width: '100%', height: '100%' }} />
-            ) : (
-              <Text style={styles.avatarText}>👤</Text>
-            )}
-          </Animated.View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Animated.View
+              style={[
+                styles.avatar,
+                {
+                  transform: [{ scale: avatarScale }],
+                  shadowColor: Colors.neonGreen,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 10,
+                  elevation: 6,
+                  padding: 0,
+                  overflow: 'hidden'
+                },
+              ]}
+            >
+              {student.avatar && student.avatar.startsWith('http') ? (
+                <Image source={{ uri: student.avatar }} style={{ width: '100%', height: '100%' }} />
+              ) : (
+                <Text style={styles.avatarText}>👤</Text>
+              )}
+            </Animated.View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <LogOut size={18} color={Colors.red} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Streak Card */}
@@ -200,6 +231,16 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 20,
+  },
+  logoutButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 71, 87, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 71, 87, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     paddingHorizontal: Spacing.xl,

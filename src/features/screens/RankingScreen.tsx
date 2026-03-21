@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, RefreshControl } from 'react-native';
 import { Medal, TrendingUp, TrendingDown, Flame } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
@@ -7,6 +7,12 @@ import { MOCK_STUDENTS } from '../data/MockStudents';
 
 export default function RankingScreen() {
   const [activeTab, setActiveTab] = useState<'week' | 'month' | 'all'>('week');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   const rankings = [
     { rank: 1, name: 'Jakub Kowalski', class: '6A', score: 92, streak: 12, trend: 'up' },
@@ -36,7 +42,13 @@ export default function RankingScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+        }
+      >
         <View style={styles.innerPadding}>
           <Text style={styles.screenTitle}>🏆 Top 10 Szkoły</Text>
 

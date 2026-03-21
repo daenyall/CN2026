@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { X, Check, Award, Bell, BellRing, Zap, TrendingUp, Plus, Star, Users, ChevronDown } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { BottomNav } from '../components/BottomNav';
@@ -185,7 +185,13 @@ export default function TeamRecruitment() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={() => {}} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+        }
+      >
         <View style={styles.innerPadding}>
 
           <View style={styles.headerRow}>

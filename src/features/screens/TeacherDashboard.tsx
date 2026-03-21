@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
-import { Users, CheckCircle, Flame, Plus, AlertTriangle, RefreshCw } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, ActivityIndicator, RefreshControl } from 'react-native';
+import { Users, CheckCircle, Flame, Plus, AlertTriangle, RefreshCw, LogOut } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
@@ -13,6 +13,8 @@ import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
+import { signOut } from 'firebase/auth';
+import { CommonActions } from '@react-navigation/native';
 
 type TeacherDashboardNav = CompositeNavigationProp<
   MaterialTopTabNavigationProp<TeacherTabParamList, 'TeacherDashboard'>,
@@ -30,6 +32,23 @@ export default function TeacherDashboard() {
   const [activeStreaks, setActiveStreaks] = useState<number>(0);
   const [pendingTestsCount, setPendingTestsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchDashboardData().finally(() => setRefreshing(false));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
+      );
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+  };
 
   // ANIMACJA ALARMU
   useEffect(() => {
@@ -143,7 +162,13 @@ export default function TeacherDashboard() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.neonGreen} colors={[Colors.neonGreen]} />
+        }
+      >
         <View style={styles.innerPadding}>
 
           {/* Header */}
@@ -156,13 +181,17 @@ export default function TeacherDashboard() {
                 <Text style={styles.headerSub}>{teacherName}</Text>
               )}
             </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <TouchableOpacity onPress={fetchDashboardData} style={styles.avatar} activeOpacity={0.8}>
               <Text style={{ fontSize: 20 }}>👩‍🏫</Text>
-              {/* Ukryta ikona odświeżenia w tle dla nauczyciela */}
               <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: Colors.bgDeep, borderRadius: 10, padding: 2 }}>
                 <RefreshCw size={10} color={Colors.neonGreen} />
               </View>
             </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <LogOut size={18} color={Colors.red} />
+            </TouchableOpacity>
+            </View>
           </View>
 
           {/* Stats Cards */}
@@ -305,6 +334,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,
+  },
+  logoutButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 71, 87, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 71, 87, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsGrid: {
     flexDirection: 'row',
