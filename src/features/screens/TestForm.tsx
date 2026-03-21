@@ -19,6 +19,8 @@ import { BottomNav } from '../components/BottomNav';
 import { AnomalyModal } from '../components/AnomalyModal';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList } from '../routes';
+import { checkAnomaly } from '../utils/anomalyUtils';
+import { MOCK_STUDENTS } from '../data/MockStudents';
 
 const EXERCISES = [
   { id: 'plank', name: 'Plank', emoji: '🧘', unit: 's', type: 'single', average: 90, scoring: 'higher' },
@@ -137,6 +139,12 @@ export default function TestForm() {
   const [showAnomalyModal, setShowAnomalyModal] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [forceUpdateTrigger, setForceUpdateTrigger] = useState(0);
+  const [anomalyDetails, setAnomalyDetails] = useState<{
+    exerciseName: string;
+    improvement: number;
+    previousValue: string;
+    currentValue: string;
+  } | null>(null);
 
   const triggerProgressUpdate = () => setForceUpdateTrigger(prev => prev + 1);
 
@@ -260,14 +268,48 @@ export default function TestForm() {
   };
 
   const processSubmit = () => {
-    const hasAnomaly = activeExercises.some(ex => {
+    // Use the first MOCK_STUDENT as reference for previous scores
+    const referenceStudent = MOCK_STUDENTS[0];
+    const lastTest = referenceStudent.testResults[referenceStudent.testResults.length - 1];
+
+    let detectedAnomaly = false;
+
+    activeExercises.forEach(ex => {
       const def = EXERCISES.find(e => e.id === ex.exerciseId);
-      const bestVal = getBestValue(ex, def);
-      if (def?.id === 'run100' && bestVal > 0 && bestVal < 14) return true;
-      return false;
+      if (!def) return;
+
+      const currentScore = getBestValue(ex, def);
+      if (currentScore <= 0) return;
+
+      // Map exercise to previous test result
+      let previousScore = def.average; // fallback to average
+      if (lastTest) {
+        if (def.id === 'plank') previousScore = lastTest.plank;
+        else if (def.id === 'run100') previousScore = lastTest.sprint;
+        else if (def.id === 'jump') previousScore = lastTest.longJump;
+      }
+
+      // For "lower is better" exercises, invert the comparison
+      const isAnomaly = def.scoring === 'lower'
+        ? checkAnomaly(previousScore, currentScore)
+        : checkAnomaly(currentScore, previousScore);
+
+      if (isAnomaly && !detectedAnomaly) {
+        detectedAnomaly = true;
+        const improvement = def.scoring === 'lower'
+          ? Math.round(((previousScore - currentScore) / previousScore) * 100)
+          : Math.round(((currentScore - previousScore) / previousScore) * 100);
+
+        setAnomalyDetails({
+          exerciseName: def.name,
+          improvement,
+          previousValue: `${previousScore}${def.unit}`,
+          currentValue: `${currentScore}${def.unit}`,
+        });
+      }
     });
 
-    if (hasAnomaly) {
+    if (detectedAnomaly) {
       setShowAnomalyModal(true);
     } else {
       Alert.alert('Zapis wysłany', 'Wyniki zostały przesłane. Czekają na zatwierdzenie przez nauczyciela.', [
@@ -440,6 +482,10 @@ export default function TestForm() {
             { text: 'OK', onPress: () => navigation.navigate('StudentProfile') }
           ]);
         }}
+        studentName={MOCK_STUDENTS[0].name}
+        improvement={anomalyDetails?.improvement}
+        previousValue={anomalyDetails?.previousValue}
+        currentValue={anomalyDetails?.currentValue}
       />
 
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>

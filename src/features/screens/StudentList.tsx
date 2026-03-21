@@ -12,19 +12,23 @@ export default function StudentList() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'best' | 'streak' | 'inactive'>('all');
 
-  // Dodano pole hasPendingTests do mocków
-  const students = [
-    { name: 'Jakub Kowalski', number: 1, score: 87, streak: 12, trend: 'up', active: true, hasPendingTests: true },
-    { name: 'Anna Nowak', number: 2, score: 89, streak: 8, trend: 'up', active: true, hasPendingTests: false },
-    { name: 'Michał Wiśniewski', number: 3, score: 85, streak: 15, trend: 'same', active: true, hasPendingTests: true },
-    { name: 'Zofia Lewandowska', number: 4, score: 82, streak: 0, trend: 'down', active: false, hasPendingTests: false },
-    { name: 'Kacper Zieliński', number: 5, score: 88, streak: 10, trend: 'up', active: true, hasPendingTests: false },
-    { name: 'Julia Kamińska', number: 6, score: 84, streak: 3, trend: 'same', active: true, hasPendingTests: true },
-    { name: 'Filip Dąbrowski', number: 7, score: 79, streak: 0, trend: 'down', active: false, hasPendingTests: false },
-    { name: 'Maja Piotrowska', number: 8, score: 86, streak: 7, trend: 'up', active: true, hasPendingTests: false },
-    { name: 'Adam Kowalczyk', number: 9, score: 81, streak: 9, trend: 'up', active: true, hasPendingTests: false },
-    { name: 'Oliwia Szymańska', number: 10, score: 83, streak: 4, trend: 'same', active: true, hasPendingTests: true },
-  ];
+  // Derive display data from MOCK_STUDENTS
+  const students = MOCK_STUDENTS.map((athlete, index) => {
+    const isActive = athlete.currentStreak > 0;
+    let trend: 'up' | 'down' | 'same' = 'same';
+    if (athlete.overall >= 75) trend = 'up';
+    else if (athlete.overall < 60) trend = 'down';
+
+    return {
+      id: athlete.id,
+      name: athlete.name,
+      number: index + 1,
+      score: athlete.overall,
+      streak: athlete.currentStreak,
+      trend,
+      active: isActive,
+    };
+  });
 
   const filters = [
     { id: 'all' as const, label: 'Wszyscy' },
@@ -35,7 +39,7 @@ export default function StudentList() {
   ];
 
   const filteredStudents = students.filter((student) => {
-    if (activeFilter === 'best') return student.score >= 85;
+    if (activeFilter === 'best') return student.score >= 75;
     if (activeFilter === 'streak') return student.streak >= 7;
     if (activeFilter === 'inactive') return !student.active;
     if (activeFilter === 'pending') return student.hasPendingTests;
@@ -58,14 +62,14 @@ export default function StudentList() {
     });
 
   const getScoreBadgeStyle = (score: number) => {
-    if (score >= 85) {
+    if (score >= 80) {
       return {
         bg: { backgroundColor: Colors.gold },
         shadow: { shadowColor: Colors.gold, shadowOpacity: 0.5, shadowRadius: 6, elevation: 5 },
         text: { color: Colors.bgDeep },
       };
     }
-    if (score >= 80) {
+    if (score >= 65) {
       return {
         bg: { backgroundColor: Colors.neonGreen },
         shadow: { shadowColor: Colors.neonGreen, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
@@ -78,7 +82,6 @@ export default function StudentList() {
       text: { color: Colors.neonGreen },
     };
   };
-
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -87,7 +90,7 @@ export default function StudentList() {
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Klasa 6A</Text>
             <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>24</Text>
+              <Text style={styles.headerBadgeText}>{MOCK_STUDENTS.length}</Text>
             </View>
           </View>
 

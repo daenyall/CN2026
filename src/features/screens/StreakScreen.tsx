@@ -1,17 +1,27 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Animated } from 'react-native';
 import { Flame, Trophy, Zap, Crown } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
 import { BottomNav } from '../components/BottomNav';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
+import { updateStreak, getBonusPoints, getStreakMilestone } from '../utils/streakUtils';
 
 export default function StreakScreen() {
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bonusPoints, setBonusPoints] = useState(0);
+
   const counterScale = useRef(new Animated.Value(0.8)).current;
   const flameScale = useRef(new Animated.Value(1)).current;
   const progressWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Load streak from AsyncStorage
+    updateStreak().then((streak) => {
+      setCurrentStreak(streak);
+      setBonusPoints(getBonusPoints(streak));
+    });
+
     Animated.spring(counterScale, {
       toValue: 1,
       useNativeDriver: true,
@@ -23,19 +33,42 @@ export default function StreakScreen() {
         Animated.timing(flameScale, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
+  }, []);
+
+  // Animate progress bar when streak changes
+  useEffect(() => {
+    // Next milestone: 7, 14, or 30
+    let nextMilestone = 7;
+    if (currentStreak >= 7) nextMilestone = 14;
+    if (currentStreak >= 14) nextMilestone = 30;
+    const progress = Math.min((currentStreak / nextMilestone) * 100, 100);
 
     Animated.timing(progressWidth, {
-      toValue: 85,
+      toValue: progress,
       duration: 1000,
       delay: 500,
       useNativeDriver: false,
     }).start();
-  }, []);
+  }, [currentStreak]);
+
+  const daysToNextMilestone = (() => {
+    if (currentStreak < 7) return 7 - currentStreak;
+    if (currentStreak < 14) return 14 - currentStreak;
+    if (currentStreak < 30) return 30 - currentStreak;
+    return 0;
+  })();
+
+  const nextMilestoneLabel = (() => {
+    if (currentStreak < 7) return '🔥 Tygodniowy Wojownik';
+    if (currentStreak < 14) return '⚡ Niezniszczalny';
+    if (currentStreak < 30) return '👑 Legenda Szkoły';
+    return '🏆 Wszystko zdobyte!';
+  })();
 
   const milestones = [
-    { days: 7, label: 'Tygodniowy Wojownik', Icon: Flame, unlocked: true },
-    { days: 14, label: 'Niezniszczalny', Icon: Zap, unlocked: false },
-    { days: 30, label: 'Legenda Szkoły', Icon: Crown, unlocked: false },
+    { days: 7, label: 'Tygodniowy Wojownik', Icon: Flame, unlocked: currentStreak >= 7 },
+    { days: 14, label: 'Niezniszczalny', Icon: Zap, unlocked: currentStreak >= 14 },
+    { days: 30, label: 'Legenda Szkoły', Icon: Crown, unlocked: currentStreak >= 30 },
   ];
 
   const days = Array.from({ length: 30 }, (_, i) => {
@@ -59,7 +92,7 @@ export default function StreakScreen() {
                 <Animated.View style={{ transform: [{ scale: flameScale }] }}>
                   <NeonIcon Icon={Flame} size={64} color={Colors.orange} glow />
                 </Animated.View>
-                <Text style={styles.counterNumber}>12</Text>
+                <Text style={styles.counterNumber}>{currentStreak}</Text>
                 <Text style={styles.counterLabel}>dni z rzędu</Text>
               </View>
             </NeonCard>
@@ -70,8 +103,8 @@ export default function StreakScreen() {
             <NeonCard>
               <View style={styles.progressSection}>
                 <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Do odznaki ⚡ Niezniszczalny</Text>
-                  <Text style={styles.progressValue}>2 dni</Text>
+                  <Text style={styles.progressLabel}>Do odznaki {nextMilestoneLabel}</Text>
+                  <Text style={styles.progressValue}>{daysToNextMilestone} dni</Text>
                 </View>
                 <View style={styles.progressBarBg}>
                   <Animated.View
@@ -150,7 +183,7 @@ export default function StreakScreen() {
             <View style={styles.statsItem}>
               <NeonCard>
                 <View style={styles.statsContent}>
-                  <Text style={styles.statsValueGold}>240</Text>
+                  <Text style={styles.statsValueGold}>{bonusPoints}</Text>
                   <Text style={styles.statsLabel}>Punkty bonusowe</Text>
                 </View>
               </NeonCard>
@@ -158,7 +191,7 @@ export default function StreakScreen() {
             <View style={styles.statsItem}>
               <NeonCard>
                 <View style={styles.statsContent}>
-                  <Text style={styles.statsValueGreen}>18</Text>
+                  <Text style={styles.statsValueGreen}>{currentStreak}</Text>
                   <Text style={styles.statsLabel}>Rekord ever</Text>
                 </View>
               </NeonCard>

@@ -1,25 +1,26 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { Home, ClipboardList, User, Trophy, Map, Users, Award, FileText } from 'lucide-react-native';
 
-// Student Screens
-import LoginScreen from '../screens/auth/LoginScreen';
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
-import RankingScreen from '../screens/dashboard/RankingScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
-import StreakScreen from '../screens/profile/StreakScreen';
-import TestFormScreen from '../screens/tests/TestFormScreen';
+// Student Screens — from features/screens
+import LoginScreen from '../features/screens/LoginScreen';
+import StudentDashboard from '../features/screens/StudentDashboard';
+import RankingScreen from '../features/screens/RankingScreen';
+import StudentProfile from '../features/screens/StudentProfile';
+import StreakScreen from '../features/screens/StreakScreen';
+import TestForm from '../features/screens/TestForm';
 
-// Teacher Screens
-import TeacherDashboard from '../screens/teacher/TeacherDashboard';
-import ClassListScreen from '../screens/teacher/ClassListScreen';
-import SquadScreen from '../screens/teacher/SquadScreen';
-import ReportScreen from '../screens/teacher/ReportScreen';
+// Teacher Screens — from features/screens
+import TeacherDashboard from '../features/screens/TeacherDashboard';
+import StudentList from '../features/screens/StudentList';
+import TeamRecruitment from '../features/screens/TeamRecruitment';
+import ReportExport from '../features/screens/ReportExport';
+import HeatMapScreen from '../features/screens/HeatMapScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const CustomTabBar = ({ state, descriptors, navigation, type }: any) => {
@@ -33,16 +34,16 @@ const CustomTabBar = ({ state, descriptors, navigation, type }: any) => {
         let label = '';
         
         if (type === 'student') {
-          if (route.name === 'DashboardScreen') { IconComponent = Home; label = 'Dom'; }
-          else if (route.name === 'TestFormScreen') { IconComponent = ClipboardList; label = 'Testy'; }
-          else if (route.name === 'ProfileScreen') { IconComponent = User; label = 'Profil'; }
+          if (route.name === 'StudentDashboard') { IconComponent = Home; label = 'Dom'; }
+          else if (route.name === 'TestForm') { IconComponent = ClipboardList; label = 'Testy'; }
+          else if (route.name === 'StudentProfile') { IconComponent = User; label = 'Profil'; }
           else if (route.name === 'RankingScreen') { IconComponent = Trophy; label = 'Ranking'; }
           else if (route.name === 'StreakScreen') { IconComponent = Map; label = 'Mapa'; }
         } else {
           if (route.name === 'TeacherDashboard') { IconComponent = Home; label = 'Dom'; }
-          else if (route.name === 'ClassListScreen') { IconComponent = Users; label = 'Uczniowie'; }
-          else if (route.name === 'SquadScreen') { IconComponent = Award; label = 'Kadra'; }
-          else if (route.name === 'ReportScreen') { IconComponent = FileText; label = 'Raporty'; }
+          else if (route.name === 'StudentList') { IconComponent = Users; label = 'Uczniowie'; }
+          else if (route.name === 'TeamRecruitment') { IconComponent = Award; label = 'Kadra'; }
+          else if (route.name === 'ReportExport') { IconComponent = FileText; label = 'Raporty'; }
         }
 
         const onPress = () => {
@@ -84,9 +85,9 @@ const CustomTabBar = ({ state, descriptors, navigation, type }: any) => {
 function StudentTabs() {
   return (
     <Tab.Navigator tabBar={props => <CustomTabBar {...props} type="student" />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="DashboardScreen" component={DashboardScreen} />
-      <Tab.Screen name="TestFormScreen" component={TestFormScreen} />
-      <Tab.Screen name="ProfileScreen" component={ProfileScreen} />
+      <Tab.Screen name="StudentDashboard" component={StudentDashboard} />
+      <Tab.Screen name="TestForm" component={TestForm} />
+      <Tab.Screen name="StudentProfile" component={StudentProfile} />
       <Tab.Screen name="RankingScreen" component={RankingScreen} />
       <Tab.Screen name="StreakScreen" component={StreakScreen} />
     </Tab.Navigator>
@@ -97,9 +98,9 @@ function TeacherTabs() {
   return (
     <Tab.Navigator tabBar={props => <CustomTabBar {...props} type="teacher" />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="TeacherDashboard" component={TeacherDashboard} />
-      <Tab.Screen name="ClassListScreen" component={ClassListScreen} />
-      <Tab.Screen name="SquadScreen" component={SquadScreen} />
-      <Tab.Screen name="ReportScreen" component={ReportScreen} />
+      <Tab.Screen name="StudentList" component={StudentList} />
+      <Tab.Screen name="TeamRecruitment" component={TeamRecruitment} />
+      <Tab.Screen name="ReportExport" component={ReportExport} />
     </Tab.Navigator>
   );
 }
@@ -111,6 +112,7 @@ export function AppNavigator() {
         <Stack.Screen name="LoginScreen" component={LoginScreen} />
         <Stack.Screen name="StudentMain" component={StudentTabs} />
         <Stack.Screen name="TeacherMain" component={TeacherTabs} />
+        <Stack.Screen name="HeatMapScreen" component={HeatMapScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
