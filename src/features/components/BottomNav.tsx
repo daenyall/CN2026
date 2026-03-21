@@ -42,6 +42,7 @@ export function BottomNav({ type }: BottomNavProps) {
     { Icon: Users, label: 'Uczniowie', path: 'StudentList' },
     { Icon: Award, label: 'Kadra', path: 'TeamRecruitment' },
     { Icon: FileText, label: 'Raporty', path: 'ReportExport' },
+    { Icon: Map, label: 'Mapa', path: 'HeatMapScreen' },
   ];
 
   const items = type === 'student' ? studentNavItems : teacherNavItems;
@@ -55,7 +56,7 @@ export function BottomNav({ type }: BottomNavProps) {
         return (
           <TouchableOpacity
             key={item.path}
-            onPress={() => navigation.navigate(item.path as any)}
+            onPress={() => navigation.navigate(item.path as any, { userType: type })}
             style={[styles.navItem, isActive && styles.navItemActive]}
             activeOpacity={0.7}
           >
