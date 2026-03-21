@@ -198,7 +198,7 @@ export default function TeacherDashboard() {
           <View style={styles.statsGrid}>
             {stats.map((stat) => (
               <View key={stat.label} style={styles.statsItem}>
-                <NeonCard>
+                <NeonCard style={{ flex: 1 }}>
                   <View style={styles.statsContent}>
                     <NeonIcon Icon={stat.Icon} size={24} color={stat.color} glow />
                     <Text style={[styles.statsValue, { color: stat.color }]}>{stat.value}</Text>
@@ -354,7 +354,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statsContent: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: Spacing.md,
   },
   statsValue: {
