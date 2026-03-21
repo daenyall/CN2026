@@ -4,6 +4,7 @@ import { MapPin } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import { useRoute } from '@react-navigation/native';
+import { BottomNav } from '../components/BottomNav';
 
 const { width } = Dimensions.get('window');
 
@@ -111,9 +112,6 @@ export default function HeatMapScreen() {
                 </View>
 
             </ScrollView>
-
-            {/* Dolna Nawigacja z Twojego kodu */}
-            <BottomNav type={userType} />
         </View>
     );
 }
