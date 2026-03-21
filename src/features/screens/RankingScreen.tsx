@@ -1,35 +1,71 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, RefreshControl, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, RefreshControl, Modal, Animated } from 'react-native';
 import { Medal, TrendingUp, TrendingDown, Flame } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import { MOCK_STUDENTS } from '../data/MockStudents';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import StudentProfile from './StudentProfile';
 
 export default function RankingScreen() {
   const [activeTab, setActiveTab] = useState<'week' | 'month' | 'all'>('week');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [liveRankings, setLiveRankings] = useState<any[]>([]);
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+  // Animation values
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const fetchRankings = async () => {
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let usersList: any[] = [];
+      usersSnap.forEach((doc) => {
+        usersList.push({ ...doc.data(), id: doc.id });
+      });
+
+      // Merge Firebase data with MOCK_STUDENTS to update scores
+      const mergedStudents = MOCK_STUDENTS.map(mockStudent => {
+        const fireStudent = usersList.find((u: any) => u.uid === mockStudent.id || u.id === mockStudent.id);
+        if (fireStudent) {
+          const stats = fireStudent.stats || mockStudent.stats;
+          const score = fireStudent.overall || Math.round(((stats.speed||0) + (stats.strength||0) + (stats.stamina||0) + (stats.jump||0) + (stats.agility||0)) / 5) || mockStudent.overall;
+          return { ...mockStudent, ...fireStudent, overall: score, id: mockStudent.id };
+        }
+        return mockStudent;
+      });
+
+      const sorted = mergedStudents
+        .sort((a, b) => b.overall - a.overall)
+        .slice(0, 10)
+        .map((s, index) => ({
+          rank: index + 1,
+          name: s.name || s.displayName || 'Brak Imienia',
+          class: s.class || '-',
+          score: s.overall,
+          streak: s.currentStreak || 0,
+          trend: index % 4 === 0 ? 'down' : (index % 2 === 0 ? 'up' : 'same'),
+          id: s.id,
+          avatar: s.avatar || s.photoURL
+        }));
+
+      setLiveRankings(sorted);
+    } catch (e) {
+      console.error('Error fetching rankings', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchRankings();
   }, []);
 
-  const rankings = MOCK_STUDENTS
-    .slice()
-    .sort((a, b) => b.overall - a.overall)
-    .slice(0, 10)
-    .map((s, index) => ({
-      rank: index + 1,
-      name: s.name,
-      class: s.class,
-      score: s.overall,
-      streak: s.currentStreak,
-      trend: index % 4 === 0 ? 'down' : (index % 2 === 0 ? 'up' : 'same'),
-      id: s.id,
-      avatar: s.avatar
-    }));
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchRankings();
+    setRefreshing(false);
+  }, []);
 
   const getMedalColor = (rank: number) => {
     if (rank === 1) return '#FFD700';
@@ -44,6 +80,16 @@ export default function RankingScreen() {
     { id: 'all' as const, label: 'Wszech czasów' },
   ];
 
+  const handleTabPress = (index: number, tabId: 'week' | 'month' | 'all') => {
+    setActiveTab(tabId);
+    Animated.spring(slideAnim, {
+      toValue: index,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 12,
+    }).start();
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -57,13 +103,34 @@ export default function RankingScreen() {
           <Text style={styles.screenTitle}>🏆 Top 10 Szkoły</Text>
 
           {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            {tabs.map((tab) => (
+          <View 
+            style={styles.tabsContainer} 
+            onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+          >
+            {containerWidth > 0 && (
+              <Animated.View
+                style={[
+                  styles.animatedPill,
+                  {
+                    width: (containerWidth - 8) / 3, // 8 is total horizontal padding
+                    transform: [
+                      {
+                        translateX: slideAnim.interpolate({
+                          inputRange: [0, 1, 2],
+                          outputRange: [0, (containerWidth - 8) / 3, ((containerWidth - 8) / 3) * 2],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            )}
+            {tabs.map((tab, index) => (
               <TouchableOpacity
                 key={tab.id}
-                style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+                style={styles.tab}
                 activeOpacity={0.7}
-                onPress={() => setActiveTab(tab.id)}
+                onPress={() => handleTabPress(index, tab.id)}
               >
                 <Text
                   style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}
@@ -76,7 +143,7 @@ export default function RankingScreen() {
 
           {/* Rankings List */}
           <View style={styles.rankingsList}>
-            {rankings.map((player) => {
+            {liveRankings.map((player) => {
               const medalColor = getMedalColor(player.rank);
               const isFirst = player.rank === 1;
               const matchingStudent = MOCK_STUDENTS.find(s => s.name === player.name);
@@ -218,11 +285,24 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    gap: Spacing.sm,
     backgroundColor: Colors.cardBg,
     borderRadius: BorderRadius.full,
     padding: 4,
     marginBottom: Spacing.xl,
+    position: 'relative',
+  },
+  animatedPill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    backgroundColor: Colors.neonGreen,
+    borderRadius: BorderRadius.full,
+    shadowColor: Colors.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
   },
   tab: {
     flex: 1,
@@ -231,14 +311,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tabActive: {
-    backgroundColor: Colors.neonGreen,
-    shadowColor: Colors.neonGreen,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
+    zIndex: 2,
   },
   tabText: {
     color: Colors.gray,
