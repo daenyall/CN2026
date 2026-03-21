@@ -8,12 +8,16 @@ export type StudentTabParamList = {
   HeatMapScreen: undefined;
 };
 
-export type RootStackParamList = {
-  Login: undefined;
-  StudentTabs: NavigatorScreenParams<StudentTabParamList>;
-  StreakScreen: undefined;
+export type TeacherTabParamList = {
   TeacherDashboard: undefined;
   StudentList: undefined;
   TeamRecruitment: undefined;
   ReportExport: undefined;
+};
+
+export type RootStackParamList = {
+  Login: undefined;
+  StudentTabs: NavigatorScreenParams<StudentTabParamList>;
+  TeacherTabs: NavigatorScreenParams<TeacherTabParamList>;
+  StreakScreen: undefined;
 };

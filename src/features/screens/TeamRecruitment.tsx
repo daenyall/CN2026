@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import { X, Check, Award } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
-import { BottomNav } from '../components/BottomNav';
+
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 
 export default function TeamRecruitment() {
@@ -155,7 +155,6 @@ export default function TeamRecruitment() {
         </View>
       </ScrollView>
 
-      <BottomNav type="teacher" />
     </View>
   );
 }

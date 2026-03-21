@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Flame, TrendingUp, TrendingDown, AlertTriangle, ChevronRight } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
 import { NeonCard } from '../components/NeonCard';
-import { BottomNav } from '../components/BottomNav';
+
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
-import type { RootStackParamList } from '../routes';
+import type { RootStackParamList, TeacherTabParamList } from '../routes';
 import { MOCK_STUDENTS } from '../data/MockStudents';
 
+type StudentListNav = CompositeNavigationProp<
+  MaterialTopTabNavigationProp<TeacherTabParamList, 'StudentList'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
 export default function StudentList() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<StudentListNav>();
   const [activeFilter, setActiveFilter] = useState<'all' | 'best' | 'streak' | 'inactive'>('all');
 
   const students = [
@@ -176,7 +182,6 @@ export default function StudentList() {
         </View>
       </ScrollView>
 
-      <BottomNav type="teacher" />
     </View>
   );
 }

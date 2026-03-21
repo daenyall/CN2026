@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import type { RootStackParamList, StudentTabParamList } from './src/features/routes';
+import type { RootStackParamList, StudentTabParamList, TeacherTabParamList } from './src/features/routes';
 import { BottomNav } from './src/features/components/BottomNav';
 
 import LoginScreen from './src/features/screens/LoginScreen';
@@ -30,11 +30,12 @@ import HeatMapScreen from './src/features/screens/HeatMapScreen';
  */
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createMaterialTopTabNavigator<StudentTabParamList>();
+const StudentTab = createMaterialTopTabNavigator<StudentTabParamList>();
+const TeacherTab = createMaterialTopTabNavigator<TeacherTabParamList>();
 
 function StudentTabNavigator() {
   return (
-    <Tab.Navigator
+    <StudentTab.Navigator
       initialRouteName="StudentDashboard"
       tabBarPosition="bottom"
       tabBar={(props) => <BottomNav {...props} type="student" />}
@@ -44,12 +45,32 @@ function StudentTabNavigator() {
         lazy: true,
       }}
     >
-      <Tab.Screen name="StudentDashboard" component={StudentDashboard} />
-      <Tab.Screen name="TestForm" component={TestForm} />
-      <Tab.Screen name="StudentProfile" component={StudentProfile} />
-      <Tab.Screen name="RankingScreen" component={RankingScreen} />
-      <Tab.Screen name="HeatMapScreen" component={HeatMapScreen} />
-    </Tab.Navigator>
+      <StudentTab.Screen name="StudentDashboard" component={StudentDashboard} />
+      <StudentTab.Screen name="TestForm" component={TestForm} />
+      <StudentTab.Screen name="StudentProfile" component={StudentProfile} />
+      <StudentTab.Screen name="RankingScreen" component={RankingScreen} />
+      <StudentTab.Screen name="HeatMapScreen" component={HeatMapScreen} />
+    </StudentTab.Navigator>
+  );
+}
+
+function TeacherTabNavigator() {
+  return (
+    <TeacherTab.Navigator
+      initialRouteName="TeacherDashboard"
+      tabBarPosition="bottom"
+      tabBar={(props) => <BottomNav {...props} type="teacher" />}
+      screenOptions={{
+        swipeEnabled: true,
+        animationEnabled: true,
+        lazy: true,
+      }}
+    >
+      <TeacherTab.Screen name="TeacherDashboard" component={TeacherDashboard} />
+      <TeacherTab.Screen name="StudentList" component={StudentList} />
+      <TeacherTab.Screen name="TeamRecruitment" component={TeamRecruitment} />
+      <TeacherTab.Screen name="ReportExport" component={ReportExport} />
+    </TeacherTab.Navigator>
   );
 }
 
@@ -69,11 +90,8 @@ export default function App() {
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="StudentTabs" component={StudentTabNavigator} />
+        <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
         <Stack.Screen name="StreakScreen" component={StreakScreen} />
-        <Stack.Screen name="TeacherDashboard" component={TeacherDashboard} />
-        <Stack.Screen name="StudentList" component={StudentList} />
-        <Stack.Screen name="TeamRecruitment" component={TeamRecruitment} />
-        <Stack.Screen name="ReportExport" component={ReportExport} />
       </Stack.Navigator>
     </NavigationContainer>
   );

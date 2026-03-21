@@ -1,16 +1,22 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Users, CheckCircle, Flame, Plus, AlertTriangle } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
-import { BottomNav } from '../components/BottomNav';
+
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
-import type { RootStackParamList } from '../routes';
+import type { RootStackParamList, TeacherTabParamList } from '../routes';
+
+type TeacherDashboardNav = CompositeNavigationProp<
+  MaterialTopTabNavigationProp<TeacherTabParamList, 'TeacherDashboard'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 export default function TeacherDashboard() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<TeacherDashboardNav>();
   const alertScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -136,7 +142,6 @@ export default function TeacherDashboard() {
         </View>
       </ScrollView>
 
-      <BottomNav type="teacher" />
     </View>
   );
 }

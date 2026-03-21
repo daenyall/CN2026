@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import { Download, Send, FileText, CheckCircle } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
-import { BottomNav } from '../components/BottomNav';
+
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 
 export default function ReportExport() {
@@ -145,7 +145,6 @@ export default function ReportExport() {
         </View>
       </ScrollView>
 
-      <BottomNav type="teacher" />
     </View>
   );
 }
