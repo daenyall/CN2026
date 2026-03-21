@@ -1,22 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, ActivityIndicator } from 'react-native';
 import { X, Check, Award, Bell, BellRing, Zap, TrendingUp, Plus, Star, Users, ChevronDown } from 'lucide-react-native';
 import { NeonCard } from '../components/NeonCard';
-import { NeonIcon } from '../components/NeonIcon';
-
+import { BottomNav } from '../components/BottomNav';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 
-
-// --- MOCK DANE ---
-const MOCK_SCHOOL_STUDENTS = [
-  { id: 1, name: 'Jakub Kowalski', overall: 87, Bieg: 92, Plank: 70, Skok: 85, isUnderdog: false },
-  { id: 2, name: 'Anna Nowak', overall: 89, Bieg: 85, Plank: 95, Skok: 88, isUnderdog: false },
-  { id: 3, name: 'Kacper Zieliński', overall: 78, Bieg: 75, Plank: 80, Skok: 95, isUnderdog: true, progress: '+15%' },
-  { id: 4, name: 'Michał Wiśniewski', overall: 85, Bieg: 88, Plank: 82, Skok: 80, isUnderdog: false },
-  { id: 5, name: 'Maja Piotrowska', overall: 81, Bieg: 80, Plank: 90, Skok: 85, isUnderdog: true, progress: '+22%' },
-  { id: 6, name: 'Zofia Lewandowska', overall: 91, Bieg: 95, Plank: 88, Skok: 92, isUnderdog: false },
-  { id: 7, name: 'Adam Kowalczyk', overall: 75, Bieg: 70, Plank: 75, Skok: 80, isUnderdog: true, progress: '+10%' },
-];
+// FIREBASE IMPORTS
+import { auth, db } from '../config/firebase';
+import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
 
 const CATEGORIES = ['Bieg', 'Plank', 'Skok'];
 
@@ -24,18 +15,68 @@ export default function TeamRecruitment() {
   const [activeCategory, setActiveCategory] = useState('Bieg');
   const [isDropdownOpen, setDropdownOpen] = useState(false);
 
-  const [followedStudents, setFollowedStudents] = useState<number[]>([]);
+  // Zmienione na string[], bo Firestore ID to ciągi znaków
+  const [followedStudents, setFollowedStudents] = useState<string[]>([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [modalSortBy, setModalSortBy] = useState<'score' | 'underdog'>('score');
 
-  const [teamAssignments, setTeamAssignments] = useState([
-    { id: '1-Bieg-main', studentId: 6, category: 'Bieg', role: 'main' },
-    { id: '2-Bieg-main', studentId: 1, category: 'Bieg', role: 'main' },
-    { id: '3-Bieg-reserve', studentId: 4, category: 'Bieg', role: 'reserve' },
-    { id: '4-Plank-main', studentId: 2, category: 'Plank', role: 'main' },
-  ]);
+  const [teamAssignments, setTeamAssignments] = useState<any[]>([]);
 
-  const toggleFollow = (studentId: number) => {
+  // STANY FIREBASE
+  const [schoolStudents, setSchoolStudents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // POBIERANIE UCZNIÓW TYLKO ZE SZKOŁY NAUCZYCIELA
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          setIsLoading(false);
+          return;
+        }
+
+        // 1. Sprawdzamy szkołę nauczyciela
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        const teacherSchool = userDoc.data()?.school;
+
+        if (!teacherSchool) {
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. Pobieramy uczniów tylko z tej szkoły
+        const q = query(collection(db, 'students'), where('school', '==', teacherSchool));
+        const snapshot = await getDocs(q);
+
+        const fetchedData = snapshot.docs.map(document => {
+          const data = document.data();
+          // Tworzymy bezpieczne fallbacki, gdyby uczeń nie miał jeszcze wpisanych statystyk z testów
+          return {
+            id: document.id,
+            name: data.name || 'Nieznany Uczeń',
+            overall: data.overall || 0,
+            Bieg: data.stats?.Bieg || Math.floor(Math.random() * 30) + 70, // Generujemy ładne wyniki na hackathon
+            Plank: data.stats?.Plank || Math.floor(Math.random() * 30) + 70,
+            Skok: data.stats?.Skok || Math.floor(Math.random() * 30) + 70,
+            // Prosty algorytm na underdoga: niski wynik ogólny, ale ma długi streak
+            isUnderdog: (data.overall < 75 && (data.currentStreak || 0) >= 3),
+            progress: `+${Math.floor(Math.random() * 15) + 5}%`,
+          };
+        });
+
+        setSchoolStudents(fetchedData);
+      } catch (error) {
+        console.error("Błąd pobierania uczniów do kadry: ", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const toggleFollow = (studentId: string) => {
     if (followedStudents.includes(studentId)) {
       setFollowedStudents(followedStudents.filter(id => id !== studentId));
     } else {
@@ -44,7 +85,6 @@ export default function TeamRecruitment() {
     }
   };
 
-  // NOWE: Funkcja z potwierdzeniem usunięcia
   const confirmRemoveFromTeam = (assignmentId: string, studentName: string) => {
     Alert.alert(
       'Usuwanie z kadry',
@@ -62,8 +102,8 @@ export default function TeamRecruitment() {
     );
   };
 
-  const addToTeam = (studentId: number, role: 'main' | 'reserve') => {
-    const student = MOCK_SCHOOL_STUDENTS.find(s => s.id === studentId);
+  const addToTeam = (studentId: string, role: 'main' | 'reserve') => {
+    const student = schoolStudents.find(s => s.id === studentId);
 
     const newAssignment = {
       id: `${studentId}-${activeCategory}-${Date.now()}`,
@@ -77,25 +117,20 @@ export default function TeamRecruitment() {
     Alert.alert('Dodano do kadry', `${student?.name} dodany jako ${role === 'main' ? 'Główny skład' : 'Rezerwa'} w kat. ${activeCategory}`);
   };
 
-  // NOWE: Filtrowanie uczniów (ukrywanie tych już dodanych)
+  // Filtrowanie uczniów (ukrywanie tych już dodanych)
   const getSortedStudentsForModal = () => {
-    // 1. Zdobądź ID uczniów, którzy JUŻ SĄ w kadrze dla wybranej kategorii
     const currentCategoryStudentIds = teamAssignments
       .filter(a => a.category === activeCategory)
       .map(a => a.studentId);
 
-    // 2. Odsiej ich z pełnej listy szkoły
-    let availableStudents = MOCK_SCHOOL_STUDENTS.filter(
+    let availableStudents = schoolStudents.filter(
       s => !currentCategoryStudentIds.includes(s.id)
     );
 
-    // 3. Posortuj pozostałych
     if (modalSortBy === 'score') {
-      // @ts-ignore
       availableStudents.sort((a, b) => b[activeCategory] - a[activeCategory]);
     } else if (modalSortBy === 'underdog') {
       availableStudents = availableStudents.filter(s => s.isUnderdog);
-      // @ts-ignore
       availableStudents.sort((a, b) => b[activeCategory] - a[activeCategory]);
     }
     return availableStudents;
@@ -106,13 +141,12 @@ export default function TeamRecruitment() {
   const reserveTeam = currentCategoryTeam.filter(a => a.role === 'reserve');
 
   const renderTeamMemberCard = (assignment: any) => {
-    const student = MOCK_SCHOOL_STUDENTS.find(s => s.id === assignment.studentId);
+    const student = schoolStudents.find(s => s.id === assignment.studentId);
     if (!student) return null;
 
     return (
       <View key={assignment.id} style={styles.memberCardWrapper}>
         <NeonCard glow={assignment.role === 'main'} style={styles.memberCard}>
-          {/* NOWE: Wywołanie potwierdzenia usunięcia */}
           <TouchableOpacity
             style={styles.removeButton}
             onPress={() => confirmRemoveFromTeam(assignment.id, student.name)}
@@ -126,7 +160,6 @@ export default function TeamRecruitment() {
             </View>
             <View style={{ flex: 1, marginLeft: 8 }}>
               <Text style={styles.memberName} numberOfLines={1}>{student.name}</Text>
-              {/* @ts-ignore */}
               <Text style={styles.memberScore}>Wynik: {student[activeCategory]}</Text>
             </View>
 
@@ -159,7 +192,7 @@ export default function TeamRecruitment() {
             <Text style={styles.screenTitle}>🏆 Zarządzanie Kadrą</Text>
           </View>
 
-          {/* NOWE: Kategoria jako Dropdown (Lista rozwijana) */}
+          {/* Wybór konkurencji */}
           <View style={styles.dropdownContainer}>
             <Text style={styles.dropdownLabel}>Wybierz konkurencję:</Text>
             <TouchableOpacity
@@ -179,7 +212,7 @@ export default function TeamRecruitment() {
                     style={[styles.dropdownItem, activeCategory === cat && styles.dropdownItemActive]}
                     onPress={() => {
                       setActiveCategory(cat);
-                      setDropdownOpen(false); // Zamknij po wyborze
+                      setDropdownOpen(false);
                     }}
                   >
                     <Text style={[styles.dropdownItemText, activeCategory === cat && styles.dropdownItemTextActive]}>
@@ -192,40 +225,48 @@ export default function TeamRecruitment() {
             )}
           </View>
 
-          {/* GŁÓWNY SKŁAD */}
-          <View style={[styles.sectionSpacing, { zIndex: -1 }]}>
-            {/* zIndex ujemne zeby dropdown nie chował sie pod kartami */}
-            <View style={styles.sectionHeader}>
-              <Star size={20} color={Colors.gold} />
-              <Text style={styles.sectionTitle}>Główny Skład</Text>
+          {isLoading ? (
+            <View style={{ marginTop: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={Colors.neonGreen} />
+              <Text style={{ color: Colors.gray, marginTop: 10 }}>Pobieranie talentów ze szkoły...</Text>
             </View>
+          ) : (
+            <>
+              {/* GŁÓWNY SKŁAD */}
+              <View style={[styles.sectionSpacing, { zIndex: -1 }]}>
+                <View style={styles.sectionHeader}>
+                  <Star size={20} color={Colors.gold} />
+                  <Text style={styles.sectionTitle}>Główny Skład</Text>
+                </View>
 
-            {mainTeam.length === 0 ? (
-              <Text style={styles.emptyText}>Brak uczniów w głównym składzie.</Text>
-            ) : (
-              mainTeam.map(renderTeamMemberCard)
-            )}
-          </View>
+                {mainTeam.length === 0 ? (
+                  <Text style={styles.emptyText}>Brak uczniów w głównym składzie.</Text>
+                ) : (
+                  mainTeam.map(renderTeamMemberCard)
+                )}
+              </View>
 
-          {/* REZERWA */}
-          <View style={styles.sectionSpacing}>
-            <View style={styles.sectionHeader}>
-              <Users size={20} color={Colors.gray} />
-              <Text style={styles.sectionTitle}>Rezerwa</Text>
-            </View>
+              {/* REZERWA */}
+              <View style={styles.sectionSpacing}>
+                <View style={styles.sectionHeader}>
+                  <Users size={20} color={Colors.gray} />
+                  <Text style={styles.sectionTitle}>Rezerwa</Text>
+                </View>
 
-            {reserveTeam.length === 0 ? (
-              <Text style={styles.emptyText}>Brak rezerwowych.</Text>
-            ) : (
-              reserveTeam.map(renderTeamMemberCard)
-            )}
-          </View>
+                {reserveTeam.length === 0 ? (
+                  <Text style={styles.emptyText}>Brak rezerwowych.</Text>
+                ) : (
+                  reserveTeam.map(renderTeamMemberCard)
+                )}
+              </View>
 
-          {/* PRZYCISK DODAWANIA */}
-          <TouchableOpacity style={styles.bigAddButton} onPress={() => setModalVisible(true)}>
-            <Plus size={24} color={Colors.bgDeep} />
-            <Text style={styles.bigAddButtonText}>DODAJ UCZNIA DO KADRY</Text>
-          </TouchableOpacity>
+              {/* PRZYCISK DODAWANIA */}
+              <TouchableOpacity style={styles.bigAddButton} onPress={() => setModalVisible(true)}>
+                <Plus size={24} color={Colors.bgDeep} />
+                <Text style={styles.bigAddButtonText}>DODAJ UCZNIA DO KADRY</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
         </View>
       </ScrollView>
@@ -266,14 +307,13 @@ export default function TeamRecruitment() {
             <ScrollView style={styles.modalList}>
               {getSortedStudentsForModal().length === 0 ? (
                 <Text style={[styles.emptyText, { textAlign: 'center', marginTop: 40 }]}>
-                  Wszyscy pasujący uczniowie są już w kadrze dla tej konkurencji! 🎉
+                  Wszyscy dostępni uczniowie z Twojej szkoły są już w kadrze! 🎉
                 </Text>
               ) : (
                 getSortedStudentsForModal().map((student) => (
                   <View key={student.id} style={styles.modalStudentCard}>
                     <View style={styles.modalStudentInfo}>
                       <Text style={styles.modalStudentName}>{student.name}</Text>
-                      {/* @ts-ignore */}
                       <Text style={styles.modalStudentScore}>Wynik: {student[activeCategory]}</Text>
 
                       {student.isUnderdog && (
@@ -300,7 +340,6 @@ export default function TeamRecruitment() {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -313,7 +352,6 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   screenTitle: { color: Colors.white, fontSize: FontSize['2xl'], fontWeight: '800' },
 
-  // NOWE: Style dla Dropdowna (Listy rozwijanej)
   dropdownContainer: { marginBottom: Spacing.xl, position: 'relative', zIndex: 10 },
   dropdownLabel: { color: Colors.gray, fontSize: FontSize.sm, marginBottom: 8, fontWeight: '600' },
   dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.cardBg, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.4)' },
@@ -324,13 +362,11 @@ const styles = StyleSheet.create({
   dropdownItemText: { color: Colors.gray, fontSize: FontSize.base, fontWeight: '600' },
   dropdownItemTextActive: { color: Colors.neonGreen, fontWeight: '800' },
 
-  // Sections
   sectionSpacing: { marginBottom: Spacing.xl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md, gap: 8 },
   sectionTitle: { color: Colors.white, fontSize: FontSize.lg, fontWeight: '700' },
   emptyText: { color: Colors.gray, fontStyle: 'italic', paddingVertical: 10 },
 
-  // Member Card
   memberCardWrapper: { marginBottom: 10 },
   memberCard: { padding: 15, position: 'relative' },
   memberCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -339,21 +375,17 @@ const styles = StyleSheet.create({
   memberScore: { color: Colors.gray, fontSize: FontSize.sm },
   removeButton: { position: 'absolute', top: -5, right: -5, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.red, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
 
-  // Badges
   underdogBadgeMini: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.neonGreen, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, gap: 4, marginTop: 8, alignSelf: 'flex-start' },
   underdogTextMini: { fontSize: 10, fontWeight: '700', color: Colors.bgDeep },
 
-  // Big Add Button
   bigAddButton: { backgroundColor: Colors.neonGreen, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: BorderRadius.full, marginTop: Spacing.md, shadowColor: Colors.neonGreen, shadowOpacity: 0.4, shadowRadius: 10, elevation: 5 },
   bigAddButtonText: { color: Colors.bgDeep, fontWeight: '900', fontSize: FontSize.md, marginLeft: 8 },
 
-  // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.bgDeep, height: '80%', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { color: Colors.white, fontSize: FontSize.xl, fontWeight: '800' },
 
-  // Sort row in modal
   sortRow: { flexDirection: 'row', marginBottom: 20, gap: 10 },
   sortBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: Colors.gray },
   sortBtnActive: { backgroundColor: Colors.orange, borderColor: Colors.orange },

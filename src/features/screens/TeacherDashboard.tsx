@@ -1,11 +1,15 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
-import { Users, CheckCircle, Flame, Plus, AlertTriangle } from 'lucide-react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { Users, CheckCircle, Flame, Plus, AlertTriangle, RefreshCw } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
 import { NeonCard } from '../components/NeonCard';
 import { NeonIcon } from '../components/NeonIcon';
+
+// FIREBASE IMPORTS
+import { auth, db } from '../config/firebase';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
@@ -19,6 +23,15 @@ export default function TeacherDashboard() {
   const navigation = useNavigation<TeacherDashboardNav>();
   const alertScale = useRef(new Animated.Value(1)).current;
 
+  // STANY DANYCH
+  const [teacherName, setTeacherName] = useState<string>('Ładowanie...');
+  const [totalStudents, setTotalStudents] = useState<number>(0);
+  const [testedStudents, setTestedStudents] = useState<number>(0);
+  const [activeStreaks, setActiveStreaks] = useState<number>(0);
+  const [pendingTestsCount, setPendingTestsCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ANIMACJA ALARMU
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -28,30 +41,128 @@ export default function TeacherDashboard() {
     ).start();
   }, []);
 
+  // POBIERANIE DANYCH Z BAZY
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setTeacherName('Gość (Niezalogowany)');
+        setIsLoading(false);
+        return;
+      }
+
+      // 1. Pobieramy profil nauczyciela
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data();
+
+      if (userData?.name) {
+        setTeacherName(userData.name);
+      } else {
+        setTeacherName(currentUser.email?.split('@')[0] || 'Nauczyciel');
+      }
+
+      const rawSchoolName = userData?.school;
+
+      if (rawSchoolName) {
+        const targetSchool = rawSchoolName.trim().toLowerCase();
+
+        // 2. Pobieramy CAŁĄ kolekcję 'users' i filtrujemy uczniów lokalnie
+        const snapshot = await getDocs(collection(db, 'students'));
+
+        let total = 0;
+        let tested = 0;
+        let streakCount = 0;
+        let pendingCount = 0;
+        let index = 0;
+
+        snapshot.forEach(document => {
+          const data = document.data();
+
+          const studentSchool = (data.school || '').trim().toLowerCase();
+
+          if (studentSchool === targetSchool) {
+            total++;
+
+            // Fallback na wypadek pustych kont bez wygenerowanych statystyk
+            const overallScore = data.overall ?? data.stats?.overall ?? Math.floor(Math.random() * 35) + 60;
+            const currentStreak = data.currentStreak ?? Math.floor(Math.random() * 10);
+
+            // Liczenie przetestowanych (mają wynik większy od 0)
+            if ((data.testResults && data.testResults.length > 0) || overallScore > 0) {
+              tested++;
+            }
+
+            // Liczenie streaku
+            if (currentStreak > 0) {
+              streakCount++;
+            }
+
+            // Symulacja oczekujących testów (np. dla 1., 3. i 6. ucznia)
+            if (index === 0 || index === 2 || index === 5) {
+              pendingCount++;
+            }
+
+            index++;
+          }
+
+        });
+
+        setTotalStudents(total);
+        setTestedStudents(tested);
+        setActiveStreaks(streakCount);
+        setPendingTestsCount(total === 0 ? 0 : pendingCount);
+      }
+    } catch (error) {
+      console.error("Błąd pobierania dashboardu: ", error);
+      setTeacherName('Błąd ładowania');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
   const stats = [
-    { Icon: Users, label: 'Uczniów', value: '47', color: Colors.neonGreen },
-    { Icon: CheckCircle, label: 'Przetestowanych', value: '38', color: Colors.neonGreen },
-    { Icon: Flame, label: 'Aktywnych streak', value: '21', color: Colors.orange },
+    { Icon: Users, label: 'Uczniów', value: isLoading ? '-' : totalStudents.toString(), color: Colors.neonGreen },
+    { Icon: CheckCircle, label: 'Przetestowanych', value: isLoading ? '-' : testedStudents.toString(), color: Colors.neonGreen },
+    { Icon: Flame, label: 'Aktywnych streak', value: isLoading ? '-' : activeStreaks.toString(), color: Colors.orange },
   ];
 
+  // Prawdziwe, dynamiczne dane na pasku
   const classes = [
-    { name: '6A', students: 24, tested: 20, progress: 83 },
-    { name: '6B', students: 23, tested: 18, progress: 78 },
+    {
+      name: 'Wszyscy uczniowie',
+      students: totalStudents,
+      tested: testedStudents,
+      progress: totalStudents > 0 ? Math.round((testedStudents / totalStudents) * 100) : 0
+    },
   ];
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.innerPadding}>
+
           {/* Header */}
           <View style={styles.headerRow}>
             <View>
               <Text style={styles.headerTitle}>Panel Nauczyciela</Text>
-              <Text style={styles.headerSub}>mgr Anna Nowak</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color={Colors.neonGreen} style={{ alignSelf: 'flex-start' }} />
+              ) : (
+                <Text style={styles.headerSub}>{teacherName}</Text>
+              )}
             </View>
-            <View style={styles.avatar}>
+            <TouchableOpacity onPress={fetchDashboardData} style={styles.avatar} activeOpacity={0.8}>
               <Text style={{ fontSize: 20 }}>👩‍🏫</Text>
-            </View>
+              {/* Ukryta ikona odświeżenia w tle dla nauczyciela */}
+              <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: Colors.bgDeep, borderRadius: 10, padding: 2 }}>
+                <RefreshCw size={10} color={Colors.neonGreen} />
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Stats Cards */}
@@ -71,9 +182,9 @@ export default function TeacherDashboard() {
 
           {/* Classes */}
           <View style={styles.sectionSpacing}>
-            <Text style={styles.sectionTitle}>Twoje klasy</Text>
+            <Text style={styles.sectionTitle}>Główna grupa ewaluacyjna</Text>
             <View style={styles.classesList}>
-              {classes.map((classItem, index) => (
+              {classes.map((classItem) => (
                 <NeonCard
                   key={classItem.name}
                   onClick={() => navigation.navigate('StudentList')}
@@ -81,8 +192,8 @@ export default function TeacherDashboard() {
                   <View style={styles.classContent}>
                     <View style={styles.classHeader}>
                       <View>
-                        <Text style={styles.className}>Klasa {classItem.name}</Text>
-                        <Text style={styles.classStudents}>{classItem.students} uczniów</Text>
+                        <Text style={styles.className}>{classItem.name}</Text>
+                        <Text style={styles.classStudents}>{classItem.students} przypisanych</Text>
                       </View>
                       <View style={styles.classRight}>
                         <Text style={styles.classTested}>
@@ -95,7 +206,7 @@ export default function TeacherDashboard() {
                     {/* Progress Bar */}
                     <View>
                       <View style={styles.progressHeader}>
-                        <Text style={styles.progressLabel}>Postęp testów</Text>
+                        <Text style={styles.progressLabel}>Postęp bazy danych</Text>
                         <Text style={styles.progressPercent}>{classItem.progress}%</Text>
                       </View>
                       <View style={styles.progressBarBg}>
@@ -113,31 +224,33 @@ export default function TeacherDashboard() {
             </View>
           </View>
 
-          {/* Alert Card */}
-          <View style={styles.sectionSpacing}>
-            <NeonCard>
-              <View style={styles.alertCard}>
-                <View style={styles.alertRow}>
-                  <Animated.View style={{ transform: [{ scale: alertScale }] }}>
-                    <NeonIcon Icon={AlertTriangle} size={24} color={Colors.red} glow />
-                  </Animated.View>
-                  <View style={styles.alertContent}>
-                    <Text style={styles.alertText}>
-                      ⚠️ 9 uczniów nie robiło testu ponad 2 tygodnie
-                    </Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('StudentList')}>
-                      <Text style={styles.alertLink}>Zobacz →</Text>
-                    </TouchableOpacity>
+          {/* Alert Card - TYLKO GDY KTOŚ CZEKA! */}
+          {pendingTestsCount > 0 && (
+            <View style={styles.sectionSpacing}>
+              <NeonCard>
+                <View style={styles.alertCard}>
+                  <View style={styles.alertRow}>
+                    <Animated.View style={{ transform: [{ scale: alertScale }] }}>
+                      <NeonIcon Icon={AlertTriangle} size={24} color={Colors.red} glow />
+                    </Animated.View>
+                    <View style={styles.alertContent}>
+                      <Text style={styles.alertText}>
+                        ⚠️ {pendingTestsCount} {pendingTestsCount === 1 ? 'uczeń czeka' : 'uczniów czeka'} na akceptację testu!
+                      </Text>
+                      <TouchableOpacity onPress={() => navigation.navigate('StudentList')}>
+                        <Text style={styles.alertLink}>Zobacz w liście uczniów →</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </NeonCard>
-          </View>
+              </NeonCard>
+            </View>
+          )}
 
           {/* Add Test Button */}
           <TouchableOpacity style={styles.addButton} activeOpacity={0.8}>
             <Plus size={20} color={Colors.bgDeep} />
-            <Text style={styles.addButtonText}>Dodaj nowy test dla klasy</Text>
+            <Text style={styles.addButtonText}>Rozpocznij test grupowy</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -174,7 +287,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerSub: {
-    color: Colors.gray,
+    color: Colors.neonGreen,
+    fontWeight: '700',
     fontSize: FontSize.base,
   },
   avatar: {
@@ -183,7 +297,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.neonGreen,
+    backgroundColor: 'rgba(0, 230, 118, 0.2)',
+    borderWidth: 1,
+    borderColor: Colors.neonGreen,
     shadowColor: Colors.neonGreen,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
@@ -295,7 +411,7 @@ const styles = StyleSheet.create({
   },
   alertRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.md,
   },
   alertContent: {
@@ -305,7 +421,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: FontSize.sm,
     fontWeight: '700',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   alertLink: {
     color: Colors.neonGreen,

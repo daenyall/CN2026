@@ -77,7 +77,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // NOWE: Stan dla imienia i nazwiska
   const [fullName, setFullName] = useState('');
 
   const [schoolsList, setSchoolsList] = useState<string[]>([]);
@@ -200,19 +199,33 @@ export default function LoginScreen() {
 
     try {
       if (isLogin) {
+        // ZALOGUJ
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        const uid = userCredential.user.uid;
 
-        let userRole = role;
-        if (userDoc.exists()) userRole = userDoc.data().role;
-
-        if (userRole === 'student') navigation.replace('StudentTabs', { screen: 'StudentDashboard' } as any);
-        else navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
+        // 1. Sprawdzamy, czy jest w tabeli nauczycieli (users)
+        const teacherDoc = await getDoc(doc(db, 'users', uid));
+        if (teacherDoc.exists() && teacherDoc.data().role === 'teacher') {
+          navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
+        } else {
+          // 2. Jeśli nie, sprawdzamy czy jest w tabeli uczniów (students)
+          const studentDoc = await getDoc(doc(db, 'students', uid));
+          if (studentDoc.exists()) {
+            navigation.replace('StudentTabs', { screen: 'StudentDashboard' } as any);
+          } else {
+            // Fallback
+            if (role === 'student') navigation.replace('StudentTabs', { screen: 'StudentDashboard' } as any);
+            else navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
+          }
+        }
 
       } else {
+        // ZAREJESTRUJ
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
         let finalSchool = selectedSchool;
 
+        // Jeśli nauczyciel dodaje szkołę
         if (role === 'teacher' && isAddingNewSchool) {
           finalSchool = newSchoolName;
           const schoolId = newSchoolName.replace(/\s+/g, '_').toLowerCase();
@@ -223,17 +236,48 @@ export default function LoginScreen() {
           });
         }
 
-        // Dodanie imienia i nazwiska do tworzonego dokumentu!
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
-          email: email,
-          name: fullName.trim(),
-          role: role,
-          school: finalSchool,
-          createdAt: new Date().toISOString()
-        });
+        const safeFullName = fullName.trim();
 
-        if (role === 'student') navigation.replace('StudentTabs', { screen: 'StudentDashboard' } as any);
-        else navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
+        if (role === 'teacher') {
+          // ZAPIS NAUCZYCIELA DO KOLEKCJI 'users'
+          await setDoc(doc(db, 'users', uid), {
+            email: email,
+            name: safeFullName,
+            role: 'teacher',
+            school: finalSchool,
+            createdAt: new Date().toISOString()
+          });
+          navigation.replace('TeacherTabs', { screen: 'TeacherDashboard' } as any);
+
+        } else {
+          // ZAPIS UCZNIA DO KOLEKCJI 'students'
+          // Posiada wszystkie pola widoczne na Twoich screenach (stats, UI-avatar, streak, overall)
+          await setDoc(doc(db, 'students', uid), {
+            email: email,
+            name: safeFullName,
+            role: 'student',
+            school: finalSchool,
+            age: 12,
+            class: '6A',
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(safeFullName)}&background=00E676&color=fff`,
+            bonusPoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            inSquad: false,
+            lastWorkoutDate: new Date().toISOString(),
+            overall: 60,
+            stats: {
+              agility: 60,
+              jump: 60,
+              speed: 60,
+              stamina: 60,
+              strength: 60
+            },
+            testResults: [],
+            createdAt: new Date().toISOString()
+          });
+          navigation.replace('StudentTabs', { screen: 'StudentDashboard' } as any);
+        }
       }
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') Alert.alert('Błąd', 'Ten email jest już zarejestrowany.');
@@ -352,7 +396,7 @@ export default function LoginScreen() {
                     />
                   </View>
 
-                  {/* NOWE POLE: Imię i Nazwisko */}
+                  {/* POLE: Imię i Nazwisko */}
                   <View style={styles.inputWrapper}>
                     <User size={20} color={Colors.gray} style={styles.inputIcon} />
                     <TextInput
