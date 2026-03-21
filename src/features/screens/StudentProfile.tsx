@@ -12,7 +12,7 @@ import { LineChart } from 'react-native-chart-kit';
 
 // FIREBASE
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 // COMPONENTS & UTILS FROM MASTER
 import { AchievementsBoard } from '../components/AchievementsBoard';
@@ -129,13 +129,39 @@ export default function StudentProfile({ studentId, onClose }: StudentProfilePro
   };
 
   useEffect(() => {
-    fetchStudentData();
+    const targetUid = studentId || auth.currentUser?.uid;
+    if (!targetUid) {
+      setIsLoading(false);
+      return;
+    }
+
+    const docRef = doc(db, 'students', targetUid);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStudent({ id: docSnap.id, ...data });
+        setEditForm({
+          weight: data.weight?.toString() || '',
+          height: data.height?.toString() || '',
+          age: data.age?.toString() || '',
+        });
+      }
+      setIsLoading(false);
+      setRefreshing(false);
+    }, (error) => {
+      console.error("Błąd pobierania profilu:", error);
+      setIsLoading(false);
+      setRefreshing(false);
+    });
+
     Animated.spring(ratingScale, { toValue: 1, delay: 200, useNativeDriver: true }).start();
     Animated.loop(Animated.sequence([
       Animated.timing(flamePulse, { toValue: 1.15, duration: 800, useNativeDriver: true }),
       Animated.timing(flamePulse, { toValue: 1, duration: 800, useNativeDriver: true })
     ])).start();
     Animated.loop(Animated.timing(spinValue, { toValue: 1, duration: 3500, useNativeDriver: true })).start();
+
+    return () => unsubscribe();
   }, [studentId]);
 
   const spin = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
@@ -154,7 +180,7 @@ export default function StudentProfile({ studentId, onClose }: StudentProfilePro
       const targetUid = studentId || auth.currentUser?.uid;
       if (!targetUid) return;
       const docRef = doc(db, 'students', targetUid);
-      
+
       const newHistoryEntry = { date: new Date().toISOString(), weight: newWeight };
       const updatedHistory = student.weight !== newWeight ? [...(student.weightHistory || []), newHistoryEntry] : (student.weightHistory || []);
 
@@ -243,21 +269,48 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
   // --- LOGIKA RANKINGÓW ---
   const bestResults: Record<string, number> = {};
   if (student.testResults?.length > 0) {
-    const last = student.testResults[student.testResults.length - 1];
-    if (last.plank) bestResults['plank'] = last.plank;
-    if (last.sprint) bestResults['run100'] = last.sprint;
-    if (last.longJump) bestResults['jump'] = last.longJump;
+    student.testResults.forEach((test: any) => {
+      // Obsługa starego formatu danych
+      if (test.plank) bestResults['plank'] = test.plank;
+      if (test.sprint) bestResults['run100'] = test.sprint;
+      if (test.longJump) bestResults['jump'] = test.longJump;
+
+      // Obsługa nowego formatu danych z TestForm.tsx
+      if (test.exercises && Array.isArray(test.exercises)) {
+        test.exercises.forEach((ex: any) => {
+          if (ex.exerciseId && typeof ex.bestValue === 'number') {
+            bestResults[ex.exerciseId] = ex.bestValue;
+          }
+        });
+      }
+    });
   }
   const exerciseRanks = calculateExerciseRanks(bestResults);
   const averageRankId = calculateAverageRankId(exerciseRanks);
 
   const bmiColor = getBMITheme(student.weight || 0, student.height || 0);
+
+  const getStat = (exerciseIds: string[]) => {
+    const ranks = exerciseRanks.filter(r => exerciseIds.includes(r.exerciseId) && r.bestValue > 0);
+    if (ranks.length === 0) return 60; // Default
+    const avgPercent = ranks.reduce((sum, r) => sum + r.percent, 0) / ranks.length;
+    return Math.min(100, Math.round(avgPercent));
+  };
+
+  const speed = getStat(['run100']);
+  const strength = getStat(['pushups', 'pullups', 'bench', 'squats', 'deadlift']);
+  const stamina = getStat(['run1000', 'plank']);
+  const jump = getStat(['jump']);
+  const agility = getStat(['situps']);
+
+  const dynamicOverall = Math.round((speed + strength + stamina + jump + agility) / 5);
+
   const radarData = [
-    { attribute: 'Szybkość', value: student.stats?.speed || 60 },
-    { attribute: 'Siła', value: student.stats?.strength || 60 },
-    { attribute: 'Wytrzymałość', value: student.stats?.stamina || 60 },
-    { attribute: 'Skoczność', value: student.stats?.jump || 60 },
-    { attribute: 'Zwinność', value: student.stats?.agility || 60 },
+    { attribute: 'Szybkość', value: speed },
+    { attribute: 'Siła', value: strength },
+    { attribute: 'Wytrzymałość', value: stamina },
+    { attribute: 'Skoczność', value: jump },
+    { attribute: 'Zwinność', value: agility },
   ];
 
   return (
@@ -290,7 +343,7 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
           <Animated.View style={[styles.ratingContainer, { transform: [{ scale: ratingScale }] }]}>
             <View style={styles.flameWrapper}>
               <LottieView source={require('../../../assets/lottie/Fire.json')} autoPlay loop style={styles.lottieFlame} colorFilters={[{ keypath: '**', color: bmiColor }]} />
-              <Text style={styles.ratingText}>{student.overall || 60}</Text>
+              <Text style={styles.ratingText}>{dynamicOverall}</Text>
             </View>
           </Animated.View>
 
@@ -385,8 +438,8 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
               <Text style={styles.sectionTitle}>Edycja Profilu</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}><X size={24} color={Colors.gray} /></TouchableOpacity>
             </View>
-            <View style={styles.inputGroup}><Text style={styles.label}>Wzrost (cm)</Text><TextInput style={styles.input} value={editForm.height} onChangeText={v => setEditForm(p => ({ ...p, height: v }))} keyboardType="numeric" placeholderTextColor={Colors.gray}/></View>
-            <View style={styles.inputGroup}><Text style={styles.label}>Waga (kg)</Text><TextInput style={styles.input} value={editForm.weight} onChangeText={v => setEditForm(p => ({ ...p, weight: v }))} keyboardType="decimal-pad" placeholderTextColor={Colors.gray}/></View>
+            <View style={styles.inputGroup}><Text style={styles.label}>Wzrost (cm)</Text><TextInput style={styles.input} value={editForm.height} onChangeText={v => setEditForm(p => ({ ...p, height: v }))} keyboardType="numeric" placeholderTextColor={Colors.gray} /></View>
+            <View style={styles.inputGroup}><Text style={styles.label}>Waga (kg)</Text><TextInput style={styles.input} value={editForm.weight} onChangeText={v => setEditForm(p => ({ ...p, weight: v }))} keyboardType="decimal-pad" placeholderTextColor={Colors.gray} /></View>
             <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}><Text style={styles.saveBtnText}>ZAPISZ</Text></TouchableOpacity>
           </View>
         </View>

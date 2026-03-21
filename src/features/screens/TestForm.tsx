@@ -23,9 +23,10 @@ import { AnomalyModal } from '../components/AnomalyModal';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, StudentTabParamList } from '../routes';
 import { checkAnomaly } from '../utils/anomalyUtils';
-import { MOCK_STUDENTS } from '../data/MockStudents';
-import { doc, setDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '../config/firebase';
+
+// FIREBASE IMPORTS
+import { auth, db } from '../config/firebase';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { updateStreak } from '../utils/streakUtils';
 import { evaluateAchievements, ACHIEVEMENTS } from '../config/achievements';
 import { getRankDisplay } from '../config/ranks';
@@ -53,7 +54,6 @@ function ProgressBar({ percent, forceTrigger }: { percent: number, forceTrigger:
 
   const [targetPercent, setTargetPercent] = useState(0);
 
-  // Debounce: 2 sekundy bez wpisywania
   useEffect(() => {
     const timer = setTimeout(() => {
       setTargetPercent(percent);
@@ -61,20 +61,17 @@ function ProgressBar({ percent, forceTrigger }: { percent: number, forceTrigger:
     return () => clearTimeout(timer);
   }, [percent]);
 
-  // Natychmiastowa aktualizacja przy wyjściu z pola (onBlur)
   useEffect(() => {
     setTargetPercent(percent);
   }, [forceTrigger]);
 
   useEffect(() => {
-    // Płynne wypełnianie paska
     Animated.timing(animatedWidth, {
       toValue: targetPercent,
       duration: 800,
       useNativeDriver: false,
     }).start();
 
-    // Estetyczna pętla ognia (Flame) dla wyniku > 115%
     if (targetPercent >= 115) {
       Animated.loop(
         Animated.sequence([
@@ -92,7 +89,7 @@ function ProgressBar({ percent, forceTrigger }: { percent: number, forceTrigger:
 
   const barColor = isFlame ? flameAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#FF4500', '#FFA500'] // Płynne przejście Czerwono-Pomarańczowy -> Jasny Pomarańczowy
+    outputRange: ['#FF4500', '#FFA500']
   }) : animatedWidth.interpolate({
     inputRange: [0, 99, 100, 114],
     outputRange: [Colors.neonGreen, Colors.neonGreen, '#FFD700', '#FFD700'],
@@ -101,12 +98,12 @@ function ProgressBar({ percent, forceTrigger }: { percent: number, forceTrigger:
 
   const glowRadius = flameAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [6, 14] // "Oddychanie" cienia
+    outputRange: [6, 14]
   });
 
   const borderColor = flameAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(255, 215, 0, 0.3)', 'rgba(255, 255, 255, 0.8)'] // Złota do białej poświata na krawędzi
+    outputRange: ['rgba(255, 215, 0, 0.3)', 'rgba(255, 255, 255, 0.8)']
   });
 
   return (
@@ -147,6 +144,19 @@ export default function TestForm() {
     currentValue: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [studentData, setStudentData] = useState<any>(null);
+
+  // Pobierz dane ucznia z Firebase
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const docSnap = await getDoc(doc(db, 'students', user.uid));
+        if (docSnap.exists()) setStudentData(docSnap.data());
+      }
+    };
+    loadUser();
+  }, []);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -223,7 +233,6 @@ export default function TestForm() {
       }
       return ex;
     }));
-    // Debounce progress bar update while typing (faster feedback)
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       triggerProgressUpdate();
@@ -300,8 +309,10 @@ export default function TestForm() {
   const processSubmit = async () => {
     try {
       setIsSubmitting(true);
+      const user = auth.currentUser;
+      if (!user) throw new Error("Brak autoryzacji");
 
-      // KROK 1: Symulacja uploadu zdjęć (kółko ładowania)
+      // KROK 1: Symulacja uploadu zdjęć
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       const fakeProofFilenames = proofImages.length > 0 ? generateFakeFilenames(proofImages.length) : [];
@@ -325,33 +336,49 @@ export default function TestForm() {
         date: new Date().toISOString(),
         exercises: exercisesPayload,
         proofFilenames: fakeProofFilenames,
+        status: 'pending',
       };
 
       // KROK 3: Ewaluacja osiągnięć (medali)
-      const referenceStudent = MOCK_STUDENTS[0];
-      const { newMedals, highestRankReward } = evaluateAchievements(exercisesPayload, referenceStudent);
+      const referenceStudent = {
+        weight: studentData?.weight || 0,
+        height: studentData?.height || 0,
+        rankId: studentData?.rankId || 0,
+        earnedMedals: studentData?.earnedMedals || [],
+        testResults: studentData?.testResults || [],
+      };
+
+      const { newMedals, highestRankReward } = evaluateAchievements(exercisesPayload, referenceStudent as any);
 
       const firebaseUpdate: Record<string, any> = {
         testResults: arrayUnion(newTestRecord),
+        lastWorkoutDate: new Date().toISOString(),
       };
 
       if (newMedals.length > 0) {
         firebaseUpdate.earnedMedals = arrayUnion(...newMedals);
       }
 
-      if (highestRankReward !== null && highestRankReward > referenceStudent.rankId) {
+      if (highestRankReward !== null && highestRankReward > (studentData?.rankId || 0)) {
         firebaseUpdate.rankId = highestRankReward;
       }
 
       // KROK 4: Zapis do Firestore
-      await setDoc(doc(db, 'students', 'mock_student_1'), firebaseUpdate, { merge: true });
+      const studentRef = doc(db, 'students', user.uid);
+      await updateDoc(studentRef, firebaseUpdate);
 
       // KROK 5: Aktualizacja streak
       await updateStreak();
 
-      // KROK 6: Łańcuch powiadomień UI
+      // KROK 6: Reset formularza do stanu początkowego
+      setActiveExercises([]);
+      setProofImages([]);
+      setAnomalyDetails(null);
+      setForceUpdateTrigger(0);
+
+      // KROK 7: Łańcuch powiadomień UI
       const showAnomalyCheck = () => {
-        const lastTest = referenceStudent.testResults[referenceStudent.testResults.length - 1];
+        const history = studentData?.testResults || [];
         let detectedAnomaly = false;
 
         activeExercises.forEach(ex => {
@@ -362,10 +389,12 @@ export default function TestForm() {
           if (currentScore <= 0) return;
 
           let previousScore = def.average;
-          if (lastTest) {
-            if (def.id === 'plank') previousScore = lastTest.plank;
-            else if (def.id === 'run100') previousScore = lastTest.sprint;
-            else if (def.id === 'jump') previousScore = lastTest.longJump;
+          // Szukaj poprzedniego wyniku w historii Firebase
+          const lastMatchingTest = [...history].reverse().find((t: any) =>
+            t.exercises?.some((e: any) => e.exerciseId === ex.exerciseId));
+          if (lastMatchingTest) {
+            const prevEx = lastMatchingTest.exercises?.find((e: any) => e.exerciseId === ex.exerciseId);
+            if (prevEx) previousScore = prevEx.bestValue;
           }
 
           const isAnomaly = def.scoring === 'lower'
@@ -401,7 +430,7 @@ export default function TestForm() {
           .map(id => ACHIEVEMENTS.find(a => a.id === id)?.name ?? id)
           .join(', ');
 
-        const rankMsg = highestRankReward !== null && highestRankReward > referenceStudent.rankId
+        const rankMsg = highestRankReward !== null && highestRankReward > (studentData?.rankId || 0)
           ? `\nNowa ranga: ${getRankDisplay(highestRankReward)} 🎖️`
           : '';
 
@@ -602,15 +631,23 @@ export default function TestForm() {
           </View>
         </View>
       </ScrollView>
+
       <AnomalyModal
         isOpen={showAnomalyModal}
-        onClose={() => setShowAnomalyModal(false)}
+        onClose={() => {
+          setShowAnomalyModal(false);
+          navigation.navigate('StudentDashboard');
+        }}
+        onViewProfile={() => {
+          setShowAnomalyModal(false);
+          navigation.navigate('StudentProfile');
+        }}
         onConfirm={() => {
           Alert.alert('Status', 'Wysłano pomyślnie. Wynik czeka na weryfikację nauczyciela.', [
             { text: 'OK', onPress: () => navigation.navigate('StudentProfile') }
           ]);
         }}
-        studentName={MOCK_STUDENTS[0].name}
+        studentName={studentData?.name || "Uczeń"}
         improvement={anomalyDetails?.improvement}
         previousValue={anomalyDetails?.previousValue}
         currentValue={anomalyDetails?.currentValue}

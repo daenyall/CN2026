@@ -19,7 +19,9 @@ interface AnomalyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm?: () => void;
+  onViewProfile?: () => void;
   studentName?: string;
+  exerciseName?: string;
   improvement?: number;
   previousValue?: string;
   currentValue?: string;
@@ -29,7 +31,9 @@ export function AnomalyModal({
   isOpen,
   onClose,
   onConfirm,
+  onViewProfile,
   studentName = 'Jakub Kowalski',
+  exerciseName = '',
   improvement = 24,
   previousValue = '13.8s',
   currentValue = '13.2s',
@@ -59,11 +63,15 @@ export function AnomalyModal({
   }, [isOpen]);
 
   const handleViewProfile = () => {
-    onClose();
-    if (onConfirm) {
-      onConfirm();
+    if (onViewProfile) {
+      onViewProfile();
+    } else {
+      onClose();
+      if (onConfirm) {
+        onConfirm();
+      }
+      navigation.navigate('StudentTabs', { screen: 'StudentProfile' });
     }
-    navigation.navigate('StudentTabs', { screen: 'StudentProfile' });
   };
 
   return (
