@@ -1,9 +1,10 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore"; // <-- TO JEST KLUCZOWE
-import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
 
 // Twoje klucze z Firebase
-const firebaseConfig = {
+const fConfig = {
   apiKey: "AIzaSyDimCZVZcMJ8r1XDE8FEEvfx4AjlyKCJDM",
   authDomain: "cn2026-aa576.firebaseapp.com",
   projectId: "cn2026-aa576",
@@ -14,8 +15,13 @@ const firebaseConfig = {
 };
 
 // 1. Inicjalizacja głównej aplikacji Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(fConfig);
 
-// 2. Inicjalizacja bazy danych i jej EKSPORT (Tego brakowało!)
+// 2. Inicjalizacja bazy danych i jej EKSPORT
 export const db = getFirestore(app);
-export const auth = getAuth(app);
+
+// 3. Inicjalizacja Auth z persistencją dla React Native
+// @ts-ignore - Wyłączamy błąd typowania dla getReactNativePersistence, który jest wymagany przez Expo
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
