@@ -283,6 +283,14 @@ Odpowiedz DOKŁADNIE w 4 punktach (po polsku):
           }
         });
       }
+
+      // Aktualizujemy globalny stan MOCK_STUDENTS "żeby updatowało się wszędzie" po zamknięciu modal'a.
+      const index = MOCK_STUDENTS.findIndex(s => s.id === prev.id);
+      if (index !== -1) {
+        MOCK_STUDENTS[index] = updated;
+      }
+
+      return updated;
     });
   }
   const exerciseRanks = calculateExerciseRanks(bestResults);
