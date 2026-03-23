@@ -130,18 +130,6 @@ src/
 
 ---
 
-## 👥 Zespół – Burritos Banditos 🌯
-
-Projekt stworzony podczas **ZSEM Coding Night v. 20.2.6** w Nowym Sączu.
-
-| Osoba | Rola |
-|---|---|
-| Bartosz Majocha | Profil FIFA, Radar Chart, PDF Export |
-| Daniel Bałuszyński | Dashboard, Nauczyciel, Ranking, Mapa |
-| Seweryn Słowik | Testy, Gamifikacja, Lootbox, GPS |
-
----
-
 ## 🏅 Wynik
 
 **🥉 3. miejsce – ZSEM Coding Night v. 20.2.6, Nowy Sącz**
@@ -151,8 +139,6 @@ Całonocny hackathon. Jeden build. Zero snu. Pełna aplikacja mobilna działają
 ---
 
 <div align="center">
-
-*Każdy talent zasługuje na szansę.* 🏆
 
 **SportRecrut** © 2026 – Burritos Banditos 🌯
 
