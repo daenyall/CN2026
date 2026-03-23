@@ -44,7 +44,7 @@ export default function StudentList() {
 
       if (!rawSchoolName) {
         setTeacherSchoolName("Brak przypisanej placówki");
-        setFirebaseStudents([]);
+        setLoadedStudents([]);
         setIsLoading(false);
         return;
       }
@@ -70,7 +70,7 @@ export default function StudentList() {
       });
 
       setTotalStudentsInDatabase(allCount);
-      setFirebaseStudents(matchedStudents);
+      setLoadedStudents(matchedStudents);
 
     } catch (error) {
       console.error("Błąd pobierania uczniów z Supabase: ", error);
