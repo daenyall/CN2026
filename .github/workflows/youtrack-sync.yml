@@ -14,17 +14,38 @@ jobs:
       - name: Utworzenie nowego zadania w YouTracku
         if: github.event.action == 'opened'
         run: |
-          # Budowanie bezpiecznego payloadu JSON do utworzenia zadania
+          echo "Krok 1: Pobieranie wewnętrznego ID dla projektu SPO..."
+          PROJECT_ID=$(curl -s -X GET "${{ secrets.YOUTRACK_URL }}/api/admin/projects?fields=id,shortName&query=SPO" \
+            -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
+            -H "Accept: application/json" | jq -r '.[0].id')
+            
+          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
+            echo "Krytyczny błąd: Nie udało się pobrać ID projektu SPO. Upewnij się, że token ma odpowiednie uprawnienia."
+            exit 1
+          fi
+          
+          echo "Znaleziono ID projektu: $PROJECT_ID"
+          
+          echo "Krok 2: Budowanie bezpiecznego payloadu JSON..."
           JSON_PAYLOAD=$(jq -n \
             --arg title "$ISSUE_TITLE" \
             --arg desc "**Utworzono z GitHuba przez @${{ github.actor }}**\n\n$ISSUE_BODY" \
-            '{project: {id: "SPO"}, summary: $title, description: $desc}')
+            --arg pid "$PROJECT_ID" \
+            '{project: {id: $pid}, summary: $title, description: $desc}')
             
-          echo "Tworzenie zadania w projekcie SPO..."
-          curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/issues" \
+          echo "Krok 3: Tworzenie zadania w projekcie SPO..."
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${{ secrets.YOUTRACK_URL }}/api/issues" \
             -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$JSON_PAYLOAD"
+            -d "$JSON_PAYLOAD")
+            
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d':' -f2)
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+             echo "Błąd YouTrack API! Kod HTTP: $HTTP_STATUS"
+             echo "Odpowiedź serwera: $RESPONSE"
+             exit 1
+          fi
+          echo "Sukces: Zadanie zostało utworzone."
 
       - name: Aktualizacja statusu istniejącego zadania
         if: github.event.action == 'closed' || github.event.action == 'reopened'
@@ -41,7 +62,12 @@ jobs:
           if [ "${{ github.event.action }}" = "reopened" ]; then COMMAND="Status Do wykonania"; fi
 
           echo "Aplikowanie komendy '$COMMAND' do zadania $ISSUE_ID..."
-          curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
             -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"query\": \"$COMMAND\", \"issues\": [{\"idReadable\": \"$ISSUE_ID\"}]}"
+            -d "{\"query\": \"$COMMAND\", \"issues\": [{\"idReadable\": \"$ISSUE_ID\"}]}")
+            
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d':' -f2)
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+             echo "Błąd YouTrack API przy zmianie statusu! Kod HTTP: $HTTP_STATUS"
+             echo "Odpowiedź
