@@ -7,27 +7,32 @@ on:
 jobs:
   sync-to-youtrack:
     runs-on: ubuntu-latest
+    env:
+      # Bezpieczne przekazanie danych do środowiska
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
     steps:
-      - name: Mark YouTrack issue as Fixed when GitHub issue closed
-        if: github.event.action == 'closed'
+      - name: Update YouTrack Issue
         run: |
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          # Szukamy SPO-XXX w tytule lub body issue
-          ISSUE_ID=$(echo "${{ github.event.issue.title }} ${{ github.event.issue.body }}" | grep -oE 'SPO-[0-9]+' | head -1)
-          if [ -n "$ISSUE_ID" ]; then
-            curl -s -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
-              -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"query\": \"Fixed\", \"issues\": [{\"id\": \"$ISSUE_ID\"}]}"
+          # 1. Wyodrębnienie idReadable (SPO-XXX)
+          ISSUE_ID=$(echo "$ISSUE_TITLE $ISSUE_BODY" | grep -oE 'SPO-[0-9]+' | head -1)
+          
+          if [ -z "$ISSUE_ID" ]; then
+            echo "Brak ID YouTracka (SPO-XXX) w tytule lub opisie. Przerywam operację."
+            exit 0
           fi
 
-      - name: Reopen YouTrack issue when GitHub issue reopened
-        if: github.event.action == 'reopened'
-        run: |
-          ISSUE_ID=$(echo "${{ github.event.issue.title }} ${{ github.event.issue.body }}" | grep -oE 'SPO-[0-9]+' | head -1)
-          if [ -n "$ISSUE_ID" ]; then
-            curl -s -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
-              -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"query\": \"Open\", \"issues\": [{\"id\": \"$ISSUE_ID\"}]}"
+          # 2. Ustalenie komendy na podstawie akcji na GitHubie
+          if [ "${{ github.event.action }}" = "closed" ]; then
+            COMMAND="State Fixed" # Zmień "Fixed", jeśli używacie "Done" lub "Resolved"
+          elif [ "${{ github.event.action }}" = "reopened" ]; then
+            COMMAND="State Open"  # Zmień "Open", jeśli używacie np. "In Progress"
           fi
+
+          echo "Aplikowanie komendy '$COMMAND' do zadania $ISSUE_ID..."
+
+          # 3. Wysłanie żądania do YouTrack API (z idReadable i flagą -f dla wyłapywania błędów HTTP)
+          curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
+            -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"$COMMAND\", \"issues\": [{\"idReadable\": \"$ISSUE_ID\"}]}"
