@@ -70,4 +70,4 @@ export async function seedFirestore(): Promise<void> {
     console.error('❌ Błąd przy seedowaniu Firestore:', error);
     alert("Błąd seedowania bazy!");
   }
-} //test1
+} //test4
