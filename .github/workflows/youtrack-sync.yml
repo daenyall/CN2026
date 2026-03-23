@@ -1,63 +1,47 @@
-name: Sync GitHub Issues with YouTrack
+name: Sync GitHub to YouTrack
 
 on:
   issues:
-    types: [closed, reopened]
+    types: [opened, closed, reopened]
 
 jobs:
   sync-to-youtrack:
     runs-on: ubuntu-latest
     env:
-      # Wymagane do autoryzacji CLI GitHuba
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ISSUE_TITLE: ${{ github.event.issue.title }}
       ISSUE_BODY: ${{ github.event.issue.body }}
     steps:
-      - name: Update YouTrack Issue and Sync Comment
+      - name: Utworzenie nowego zadania w YouTracku
+        if: github.event.action == 'opened'
         run: |
-          # 1. Wyodrębnienie ID YouTracka
+          # Budowanie bezpiecznego payloadu JSON do utworzenia zadania
+          JSON_PAYLOAD=$(jq -n \
+            --arg title "$ISSUE_TITLE" \
+            --arg desc "**Utworzono z GitHuba przez @${{ github.actor }}**\n\n$ISSUE_BODY" \
+            '{project: {id: "SPO"}, summary: $title, description: $desc}')
+            
+          echo "Tworzenie zadania w projekcie SPO..."
+          curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/issues" \
+            -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD"
+
+      - name: Aktualizacja statusu istniejącego zadania
+        if: github.event.action == 'closed' || github.event.action == 'reopened'
+        run: |
           ISSUE_ID=$(echo "$ISSUE_TITLE $ISSUE_BODY" | grep -oE 'SPO-[0-9]+' | head -1)
           
           if [ -z "$ISSUE_ID" ]; then
-            echo "Brak ID YouTracka (SPO-XXX). Przerywam operację."
+            echo "Brak ID YouTracka (SPO-XXX). Przerywam."
             exit 0
           fi
 
-          # 2. Ustalenie parametrów na podstawie akcji
-          ACTION="${{ github.event.action }}"
-          if [ "$ACTION" = "closed" ]; then
-            COMMAND="State Fixed"
-            ACTION_PL="Zamknięto zadanie"
-          elif [ "$ACTION" = "reopened" ]; then
-            COMMAND="State Open"
-            ACTION_PL="Otwarto ponownie zadanie"
-          fi
+          # Polskie statusy wyciągnięte ze zrzutu ekranu
+          if [ "${{ github.event.action }}" = "closed" ]; then COMMAND="Status Zrobiona"; fi
+          if [ "${{ github.event.action }}" = "reopened" ]; then COMMAND="Status Do wykonania"; fi
 
-          echo "Krok 1: Zmiana statusu zadania $ISSUE_ID..."
+          echo "Aplikowanie komendy '$COMMAND' do zadania $ISSUE_ID..."
           curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/commands" \
             -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{\"query\": \"$COMMAND\", \"issues\": [{\"idReadable\": \"$ISSUE_ID\"}]}"
-
-          echo "Krok 2: Pobieranie ostatniego komentarza z GitHuba..."
-          # Wykorzystanie 'jq' z warunkiem sprawdzającym długość tablicy zapobiega błędom, gdy issue nie ma żadnych komentarzy.
-          LAST_COMMENT=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
-            --jq 'if length > 0 then .[-1].body else "" end')
-
-          # 3. Formatowanie treści dla YouTracka (Markdown)
-          if [ -n "$LAST_COMMENT" ]; then
-            YT_COMMENT_TEXT="**Akcja na GitHubie:** $ACTION_PL przez @${{ github.actor }}
-          **Ostatni komentarz:**
-          $LAST_COMMENT"
-          else
-            YT_COMMENT_TEXT="**Akcja na GitHubie:** $ACTION_PL przez @${{ github.actor }} *(brak dodatkowego komentarza)*"
-          fi
-
-          # 4. Bezpieczne budowanie JSON-a (chroni przed złamaniem struktury przez znaki nowej linii lub cudzysłowy w komentarzu)
-          JSON_PAYLOAD=$(jq -n --arg text "$YT_COMMENT_TEXT" '{text: $text}')
-
-          echo "Krok 3: Publikacja komentarza w YouTracku..."
-          curl -f -s -X POST "${{ secrets.YOUTRACK_URL }}/api/issues/$ISSUE_ID/comments" \
-            -H "Authorization: Bearer ${{ secrets.YOUTRACK_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "$JSON_PAYLOAD"
