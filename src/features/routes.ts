@@ -22,4 +22,5 @@ export type RootStackParamList = {
   TeacherTabs: NavigatorScreenParams<TeacherTabParamList>;
   StreakScreen: undefined;
   StudentSettings: undefined;
+  TeacherSettings: undefined;
 };

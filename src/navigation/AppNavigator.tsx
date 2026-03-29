@@ -20,6 +20,7 @@ import StudentList from '../features/screens/StudentList';
 import TeamRecruitment from '../features/screens/TeamRecruitment';
 import ReportExport from '../features/screens/ReportExport';
 import HeatMapScreen from '../features/screens/HeatMapScreen';
+import TeacherSettings from '../features/screens/TeacherSettings';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -47,6 +48,10 @@ const CustomTabBar = ({ state, descriptors, navigation, type }: any) => {
           else if (route.name === 'TeamRecruitment') { IconComponent = Award; label = 'Kadra'; }
           else if (route.name === 'ReportExport') { IconComponent = FileText; label = 'Raporty'; }
         }
+
+
+        // Ekranów, które nie mają być w BottomNav, nie renderujemy w pasku
+        if (!label) return null;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -104,6 +109,7 @@ function TeacherTabs() {
       <Tab.Screen name="StudentList" component={StudentList} />
       <Tab.Screen name="TeamRecruitment" component={TeamRecruitment} />
       <Tab.Screen name="ReportExport" component={ReportExport} />
+      <Tab.Screen name="TeacherSettings" component={TeacherSettings} />
     </Tab.Navigator>
   );
 }
@@ -116,6 +122,7 @@ export function AppNavigator() {
         <Stack.Screen name="StudentMain" component={StudentTabs} />
         <Stack.Screen name="TeacherMain" component={TeacherTabs} />
         <Stack.Screen name="HeatMapScreen" component={HeatMapScreen} />
+
       </Stack.Navigator>
     </NavigationContainer>
   );

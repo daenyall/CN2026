@@ -18,6 +18,7 @@ import TeamRecruitment from './src/features/screens/TeamRecruitment';
 import ReportExport from './src/features/screens/ReportExport';
 import HeatMapScreen from './src/features/screens/HeatMapScreen';
 import StudentSettings from './src/features/screens/StudentSettings';
+import TeacherSettings from './src/features/screens/TeacherSettings';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const StudentTab = createMaterialTopTabNavigator<StudentTabParamList>();
@@ -76,6 +77,7 @@ export default function App() {
         <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
         <Stack.Screen name="StreakScreen" component={StreakScreen} />
         <Stack.Screen name="StudentSettings" component={StudentSettings} />
+        <Stack.Screen name="TeacherSettings" component={TeacherSettings} />
       </Stack.Navigator>
     </NavigationContainer>
   );

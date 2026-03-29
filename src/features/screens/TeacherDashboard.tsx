@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, ActivityIndicator, RefreshControl } from 'react-native';
-import { Users, CheckCircle, Flame, Plus, AlertTriangle, RefreshCw, LogOut } from 'lucide-react-native';
+import { Users, CheckCircle, Flame, Plus, AlertTriangle, RefreshCw, Settings } from 'lucide-react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
@@ -12,7 +12,7 @@ import { supabase } from '../config/supabase';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../styles/theme';
 import type { RootStackParamList, TeacherTabParamList } from '../routes';
-import { CommonActions } from '@react-navigation/native';
+
 
 type TeacherDashboardNav = CompositeNavigationProp<
   MaterialTopTabNavigationProp<TeacherTabParamList, 'TeacherDashboard'>,
@@ -37,16 +37,7 @@ export default function TeacherDashboard() {
     fetchDashboardData().finally(() => setRefreshing(false));
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigation.dispatch(
-        CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
-      );
-    } catch (e) {
-      console.error('Logout error:', e);
-    }
-  };
+
 
   // ANIMACJA ALARMU
   useEffect(() => {
@@ -183,8 +174,8 @@ export default function TeacherDashboard() {
                 <RefreshCw size={10} color={Colors.neonGreen} />
               </View>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <LogOut size={18} color={Colors.red} />
+            <TouchableOpacity onPress={() => navigation.navigate('TeacherSettings' as any)} style={styles.settingsButton}>
+              <Settings size={18} color={Colors.gray} />
             </TouchableOpacity>
             </View>
           </View>
@@ -330,13 +321,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  logoutButton: {
+  settingsButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 71, 87, 0.1)',
+    backgroundColor: 'rgba(136, 153, 170, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 71, 87, 0.3)',
+    borderColor: 'rgba(136, 153, 170, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
